@@ -6,17 +6,9 @@ using System.Linq;
 using System.Xml.Linq;
 using System.Collections.Generic;
 
-public class Person
-{
-    public string Name { get; set; }
-    public int? EventorId { get; set; }
-    public bool Update { get; set; }
-    public Person() {}
-}
-
 public class Test
 {
-    public static bool Validator (object sender, X509Certificate certificate, X509Chain chain,
+    public tatic bool Validator (object ender, X509Certificate certificate, X509Chain chain,
             SslPolicyErrors sslPolicyErrors)
     {
         return true;
@@ -25,10 +17,11 @@ public class Test
 
     public static void Main()
     {
+        // string ApiKey = ConfigurationManager.AppSettings["ApiKey"];
         // ServicePointManager.ServerCertificateValidationCallback = Validator;
         // string baseUrl = "https://eventor.orientering.se/api/";
         // var client = new WebClient();
-        // client.Headers.Add("ApiKey", "9f0601c6fd49493bbab93960903341a0");
+        // client.Headers.Add("ApiKey", ApiKey);
 
         // try
         // {
