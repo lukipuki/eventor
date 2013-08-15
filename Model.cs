@@ -60,6 +60,8 @@ namespace Eventor
         public virtual string Name { get; set; }
         public virtual Club Club { get; set; }
         public virtual string Address { get; set; }
+        public virtual string Phone { get; set; }
+        public virtual string Email { get; set; }
     }
 
     public class Event
@@ -67,6 +69,7 @@ namespace Eventor
         public virtual int Id { get; protected set; }
         public virtual int EventorID { get; set; }
         public virtual string Name { get; set; }
+        public virtual string Url { get; set; }
         public virtual IList<Class> Classes { get; protected set; }
         public virtual IList<Race> Races { get; protected set; }
         public virtual IList<Document> Documents { get; protected set; }
@@ -116,9 +119,10 @@ namespace Eventor
 
     public class Race
     {
-        public virtual int Id { get; protected set; }
+        public virtual int Id { get; set; }
         public virtual int EventorID { get; set; }
         public virtual Event Event { get; set; }
+        public virtual string Name { get; set; }
         public virtual DateTime Date { get; set; }
         public virtual int Day { get; set; }
     }

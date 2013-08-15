@@ -53,6 +53,8 @@ namespace Eventor
            Map(x => x.EventorID);
            Map(x => x.Name);
            Map(x => x.Address);
+           Map(x => x.Phone);
+           Map(x => x.Email);
            References(x => x.Club);
        }
    }
@@ -64,6 +66,7 @@ namespace Eventor
            Id(x => x.Id);
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Name);
+           Map(x => x.Url);
            HasMany(x => x.Classes);
            HasMany(x => x.Races);
            HasMany(x => x.Documents);
@@ -100,7 +103,7 @@ namespace Eventor
            Id(x => x.Id);
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Date);
-           Map(x => x.Day);
+           Map(x => x.Name);
            References(x => x.Event).Not.Nullable();
        }
    }
