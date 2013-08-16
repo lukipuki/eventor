@@ -67,6 +67,8 @@ namespace Eventor
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Name);
            Map(x => x.Url);
+           Map(x => x.StartDate);
+           Map(x => x.FinishDate);
            HasMany(x => x.Classes);
            HasMany(x => x.Races);
            HasMany(x => x.Documents);
@@ -104,6 +106,10 @@ namespace Eventor
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Date);
            Map(x => x.Name);
+           Map(x => x.Distance);
+           Map(x => x.Daylight);
+           Map(x => x.X);
+           Map(x => x.Y);
            References(x => x.Event).Not.Nullable();
        }
    }
@@ -132,7 +138,9 @@ namespace Eventor
            References(x => x.RaceClass).Not.Nullable();
            Map(x => x.StartTime);
            Map(x => x.Time);
+           Map(x => x.TimeDiff);
            Map(x => x.Position);
+           Map(x => x.Status);
        }
    }
 }

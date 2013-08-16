@@ -15,7 +15,7 @@ using System.Threading;
 
 namespace Eventor
 {
-    class Synchronize
+    static class Synchronize
     {
         public static bool Validator (object sender, X509Certificate certificate, X509Chain chain,
                 SslPolicyErrors sslPolicyErrors)
@@ -45,6 +45,20 @@ namespace Eventor
         {
             string[] val = el.Element(name).Value.Split(':');
             return TimeSpan.FromSeconds(60 * int.Parse(val[0]) + int.Parse(val[1]));
+        }
+
+        private static void SaveClubs(ISession session, XDocument clubsXml)
+        {
+            // TODO: Overwrite
+            foreach (var organ in clubsXml.Element("OrganisationList").Elements("Organisation")
+                    .Where(x => x.Element("OrganisationTypeId").Value == "3"))
+            {
+                Club club = new Club {
+                    Name = organ.Element("Name").Value,
+                    EventorID = int.Parse(organ.Element("OrganisationId").Value)
+                };
+                session.Save(club);
+            }
         }
 
         private static void SavePeople(Club club, ISession session, XDocument peopleXml)
@@ -105,6 +119,8 @@ namespace Eventor
                 int eventorID = IntFromElement("EventId", eventEl);
                 string name = eventEl.Element("Name").Value;
                 string url = eventEl.Element("WebURL").Value;
+                DateTime startDate = DateFromElement(eventEl.Element("StartDate"));
+                DateTime finishDate = DateFromElement(eventEl.Element("FinishDate"));
 
                 Event even;
                 if (eventsById.ContainsKey(eventorID))
@@ -113,12 +129,23 @@ namespace Eventor
                     even = new Event { EventorID = eventorID };
                 even.Name = name;
                 even.Url = url;
+                even.StartDate = startDate;
+                even.FinishDate = finishDate;
 
                 foreach (XElement raceEl in eventEl.Elements("EventRace"))
                 {
                     int raceID = IntFromElement("EventRaceId", raceEl);
                     name = raceEl.Element("Name").Value;
                     DateTime date = DateFromElement(raceEl.Element("RaceDate"));
+                    bool daylight = raceEl.Attribute("raceLightCondition").Value == "Day";
+                    string distance = raceEl.Attribute("raceDistance").Value;
+                    XElement position = raceEl.Element("EventCenterPosition");
+                    decimal? x, y;
+                    if (position != null)
+                    {
+                        x = decimal.Parse(position.Attribute("x").Value);
+                        y = decimal.Parse(position.Attribute("y").Value);
+                    }
 
                     Race race;
                     if (racesById.ContainsKey(raceID))
@@ -130,6 +157,10 @@ namespace Eventor
                     }
                     race.Name = name;
                     race.Date = date;
+                    race.Daylight = daylight;
+                    race.Distance = distance;
+                    race.X = x;
+                    race.Y = y;
                     session.SaveOrUpdate(race);
                 }
                 session.SaveOrUpdate(even);
@@ -304,6 +335,7 @@ namespace Eventor
                         run.Time = time;
                         run.TimeDiff = timeDiff;
                         run.Position = position;
+                        run.Status = status;
                         session.SaveOrUpdate(run);
                     }
                 }
@@ -326,81 +358,74 @@ namespace Eventor
                 // var bytes = client.DownloadData(baseUrl + "organisations");
                 // responseString = System.Text.Encoding.UTF8.GetString(bytes);
                 // System.Console.WriteLine(responseString);
-                XDocument clubsXml = XDocument.Load("clubs.xml");
+                XDocument clubsXml = XDocument.Load("XML/clubs.xml");
 
                 // var bytes = client.DownloadData(baseUrl + "persons/organisations/636?includeContactDetails=true");
                 // responseString = System.Text.Encoding.UTF8.GetString(bytes);
                 // System.Console.WriteLine(responseString);
                 // XDocument peopleXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
-                XDocument peopleXml = XDocument.Load("people.xml");
+                XDocument peopleXml = XDocument.Load("XML/people.xml");
 
                 // var bytes = client.DownloadData(baseUrl + "events?eventIds=5113");
                 // responseString = System.Text.Encoding.UTF8.GetString(bytes);
                 // System.Console.WriteLine(responseString);
                 // XDocument eventXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
-                XDocument eventXml = XDocument.Load("events.xml");
+                XDocument eventXml = XDocument.Load("XML/events.xml");
 
                 // var bytes = client.DownloadData(baseUrl + "events/documents?eventIds=5113");
                 // responseString = System.Text.Encoding.UTF8.GetString(bytes);
                 // System.Console.WriteLine(responseString);
                 // XDocument documentXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
-                XDocument documentXml = XDocument.Load("documents.xml");
+                XDocument documentXml = XDocument.Load("XML/documents.xml");
 
                 // var bytes = client.DownloadData(baseUrl + "eventclasses?eventId=5113");
                 // responseString = System.Text.Encoding.UTF8.GetString(bytes);
                 // System.Console.WriteLine(responseString);
                 // XDocument classesXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
-                XDocument classesXml = XDocument.Load("classes.xml");
+                XDocument classesXml = XDocument.Load("XML/classes.xml");
 
                 // var bytes = client.DownloadData(baseUrl + "results/organisation?eventId=5113&organisationIds=636&top=1");
                 // var bytes = client.DownloadData(baseUrl + "results/organisation?eventId=5113&organisationIds=636");
                 // responseString = System.Text.Encoding.UTF8.GetString(bytes);
                 // System.Console.WriteLine(responseString);
                 // XDocument resultsXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
-                XDocument resultsXml = XDocument.Load("results.xml");
+                XDocument resultsXml = XDocument.Load("XML/results.xml");
 
                 using (var session = NHibernateHelper.OpenSession())
                 {
                     // using (var transaction = session.BeginTransaction())
                     // {
-                    //     foreach (var organ in clubsXml.Element("OrganisationList").Elements("Organisation")
-                    //             .Where(x => x.Element("OrganisationTypeId").Value == "3"))
-                    //     {
-                    //         Club club = new Club {
-                    //             Name = organ.Element("Name").Value,
-                    //             EventorID = int.Parse(organ.Element("OrganisationId").Value)
-                    //         };
-                    //         session.Save(club);
-                    //     }
-                    // }
-
-                    // var centrum = (from club in session.Query<Club>()
-                    //                where club.EventorID == 636
-                    //                select club).Single();
-
-                    // using (var transaction = session.BeginTransaction())
-                    // {
-                    //     SavePeople(centrum, session, peopleXml);
+                    //     SaveClubs(session, clubsXml);
                     //     transaction.Commit();
                     // }
 
-                    // using (var transaction = session.BeginTransaction())
-                    // {
-                    //     SaveEvents(session, eventXml);
-                    //     transaction.Commit();
-                    // }
+                    var centrum = (from club in session.Query<Club>()
+                                   where club.EventorID == 636
+                                   select club).Single();
 
-                    // using (var transaction = session.BeginTransaction())
-                    // {
-                    //     SaveDocuments(session, documentXml);
-                    //     transaction.Commit();
-                    // }
+                    using (var transaction = session.BeginTransaction())
+                    {
+                        SavePeople(centrum, session, peopleXml);
+                        transaction.Commit();
+                    }
 
-                    // using (var transaction = session.BeginTransaction())
-                    // {
-                    //     SaveClasses(session, classesXml, 5113);
-                    //     transaction.Commit();
-                    // }
+                    using (var transaction = session.BeginTransaction())
+                    {
+                        SaveEvents(session, eventXml);
+                        transaction.Commit();
+                    }
+
+                    using (var transaction = session.BeginTransaction())
+                    {
+                        SaveDocuments(session, documentXml);
+                        transaction.Commit();
+                    }
+
+                    using (var transaction = session.BeginTransaction())
+                    {
+                        SaveClasses(session, classesXml, 5113);
+                        transaction.Commit();
+                    }
 
                     using (var transaction = session.BeginTransaction())
                     {
