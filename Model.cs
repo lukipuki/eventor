@@ -5,40 +5,6 @@ using NHibernate.Linq;
 
 namespace Eventor
 {
-    public class Car
-    {
-        public virtual int Id { get; protected set; }
-        public virtual string Title { get; set; }
-        public virtual string Description { get; set; }
-        public virtual Make Make { get; set; }
-        public virtual Model Model { get; set; }
-    }
-
-    public class Make
-    {
-        public virtual int Id { get; protected set; }
-        public virtual string Name { get; set; }
-        public virtual IList<Model> Models { get; protected set; }
-
-        public Make()
-        {
-            Models = new List<Model>();
-        }
-
-        public virtual void AddModel(Model model)
-        {
-            model.Make = this;
-            Models.Add(model);
-        }
-    }
-
-    public class Model
-    {
-        public virtual int Id { get; protected set; }
-        public virtual string Name { get; set; }
-        public virtual Make Make { get; set; }
-    }
-
     public class Club
     {
         public virtual int Id { get; protected set; }

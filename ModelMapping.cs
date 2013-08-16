@@ -2,38 +2,6 @@ using FluentNHibernate.Mapping;
 
 namespace Eventor
 {
-    public class CarMap : ClassMap<Car>
-    {
-        public CarMap()
-        {
-            Id(x => x.Id);
-            Map(x => x.Title);
-            Map(x => x.Description);
-            References(x => x.Make);
-            References(x => x.Model);
-        }
-    }
-
-    public class MakeMap : ClassMap<Make>
-    {
-        public MakeMap()
-        {
-            Id(x => x.Id);
-            Map(x => x.Name);
-            HasMany(x => x.Models);
-        }
-    }
-
-   public class ModelMap : ClassMap<Model>
-   {
-       public ModelMap()
-       {
-           Id(x => x.Id);
-           Map(x => x.Name);
-           References(x => x.Make);
-       }
-   }
-
    public class ClubMap : ClassMap<Club>
    {
        public ClubMap()

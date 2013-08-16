@@ -16,7 +16,7 @@ BEGIN
 END//
 
 DROP PROCEDURE IF EXISTS `classes` //
-CREATE PROCEDURE `class_info` (IN raceID INT)
+CREATE PROCEDURE `classes` (IN raceID INT)
 BEGIN
     SELECT Class.Name, Length, NoRunners
     FROM (RaceClass JOIN Class ON ClassId = Class.Id)
