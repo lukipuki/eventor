@@ -30,8 +30,7 @@ namespace Eventor
                 .Mappings(m =>
                             m.FluentMappings.AddFromAssemblyOf<Club>()
                             .Conventions
-                            .Add(ForeignKey.EndsWith("Id"), Table.Is(x => x.EntityType.Name),
-                                 DefaultCascade.All())
+                            .Add(ForeignKey.EndsWith("Id"), Table.Is(x => x.EntityType.Name))
                          )
                 .ExposeConfiguration(cfg => new SchemaExport(cfg)
                                                 .Create(false, false))

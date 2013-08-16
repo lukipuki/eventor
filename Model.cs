@@ -119,7 +119,7 @@ namespace Eventor
 
     public class Race
     {
-        public virtual int Id { get; set; }
+        public virtual int Id { get; protected set; }
         public virtual int EventorID { get; set; }
         public virtual Event Event { get; set; }
         public virtual string Name { get; set; }
@@ -134,7 +134,7 @@ namespace Eventor
         public virtual Race Race { get; set; }
         public virtual Class Class { get; set; }
         public virtual int? Length { get; set; }
-        public virtual int? Climbing { get; set; }
+        public virtual int? NoRunners { get; set; }
         public virtual IList<Run> Runs { get; set; }
     }
 
@@ -146,6 +146,7 @@ namespace Eventor
         public virtual RaceClass RaceClass { get; set; }
         public virtual DateTime? StartTime { get; set; }
         public virtual TimeSpan? Time { get; set; }
+        public virtual TimeSpan? TimeDiff { get; set; }
         public virtual int? Position { get; set; }
     }
 

@@ -115,7 +115,7 @@ namespace Eventor
            Id(x => x.Id);
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Length);
-           Map(x => x.Climbing);
+           Map(x => x.NoRunners);
            References(x => x.Race).Not.Nullable();
            References(x => x.Class).Not.Nullable();
            HasMany(x => x.Runs);
