@@ -92,7 +92,6 @@ namespace Eventor
            Map(x => x.NoRunners);
            References(x => x.Race).Not.Nullable();
            References(x => x.Class).Not.Nullable();
-           HasMany(x => x.Runs);
        }
    }
 

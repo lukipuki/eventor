@@ -39,12 +39,34 @@ BEGIN
     conv_time(Run.Time) AS Time, conv_time(Run.TimeDiff) AS Difference, Status
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId
-    WHERE RaceClass.RaceId = raceID
+    WHERE RaceClass.RaceId = raceID AND Status != NULL
     ORDER BY Class.Name, COALESCE(Position, 100000);
+END//
+
+DROP PROCEDURE IF EXISTS `startlist` //
+CREATE PROCEDURE `startlist` (IN raceID INT)
+BEGIN
+    SELECT Class.Name AS Class, Person.Name, StartTime
+    FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
+    JOIN Class ON Class.Id = ClassId
+    WHERE RaceClass.RaceId = raceID
+    ORDER BY Class.Name, StartTime;
 END//
 
 DROP PROCEDURE IF EXISTS `documents` //
 CREATE PROCEDURE `documents` (IN eventID INT)
 BEGIN
     SELECT Document.Name, Document.Url FROM Document JOIN Event WHERE  Event.EventorId = eventID;
+END//
+
+DROP PROCEDURE IF EXISTS `members` //
+CREATE PROCEDURE `members`
+BEGIN
+    SELECT Name, Phone, Address, Person.Id FROM Person JOIN Club WHERE Club.EventorID = 636;
+END//
+
+DROP PROCEDURE IF EXISTS `races_of_person` //
+CREATE PROCEDURE `races_of_person` (IN personID INT)
+BEGIN
+    SELECT RaceId FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id WHERE PersonId = personID;
 END//

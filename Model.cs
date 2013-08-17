@@ -36,8 +36,8 @@ namespace Eventor
         public virtual int EventorID { get; set; }
         public virtual string Name { get; set; }
         public virtual string Url { get; set; }
-        public virtual DateTime StartDate { get; set; }
-        public virtual DateTime FinishDate { get; set; }
+        public virtual DateTime? StartDate { get; set; }
+        public virtual DateTime? FinishDate { get; set; }
 
         public virtual IList<Class> Classes { get; protected set; }
         public virtual IList<Race> Races { get; protected set; }
@@ -107,7 +107,6 @@ namespace Eventor
         public virtual Class Class { get; set; }
         public virtual int? Length { get; set; }
         public virtual int? NoRunners { get; set; }
-        public virtual IList<Run> Runs { get; set; }
     }
 
     public class Run
@@ -122,5 +121,4 @@ namespace Eventor
         public virtual int? Position { get; set; }
         public virtual string Status { get; set; }
     }
-
 }
