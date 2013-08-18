@@ -34,7 +34,7 @@ namespace Eventor
                                  // DefaultCascade.DeleteOrphan())
                          )
                 .ExposeConfiguration(cfg => new SchemaExport(cfg)
-                                                .Create(false, true))
+                                                .Create(false, false))
                 .BuildSessionFactory();
         }
 

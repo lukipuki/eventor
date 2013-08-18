@@ -37,7 +37,10 @@ DROP PROCEDURE IF EXISTS `results` //
 CREATE PROCEDURE `results` (IN raceID INT)
 BEGIN
     SELECT Class.Name AS Class, Person.Name, Position,
-    conv_time(Run.Time) AS Time, conv_time(Run.TimeDiff) AS Difference, Status
+    CONCAT(FLOOR(Run.Time / 600000000), ':', LPAD(ROUND(Run.Time / 10000000) % 60, 2, '0')) AS Time,
+    CONCAT(FLOOR(Run.TimeDiff / 600000000), ':', LPAD(ROUND(Run.TimeDiff / 10000000) % 60, 2, '0'))
+    AS Difference,
+    Status
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId
     WHERE RaceClass.RaceId = raceID AND Status IS NOT NULL
