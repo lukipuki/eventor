@@ -31,9 +31,10 @@ namespace Eventor
                             m.FluentMappings.AddFromAssemblyOf<Club>()
                             .Conventions
                             .Add(ForeignKey.EndsWith("Id"), Table.Is(x => x.EntityType.Name))
+                                 // DefaultCascade.DeleteOrphan())
                          )
                 .ExposeConfiguration(cfg => new SchemaExport(cfg)
-                                                .Create(false, false))
+                                                .Create(false, true))
                 .BuildSessionFactory();
         }
 

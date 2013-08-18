@@ -9,10 +9,11 @@ BEGIN
 END//
 
 DROP PROCEDURE IF EXISTS `races` //
-CREATE PROCEDURE `races` (IN eventID INT)
+CREATE PROCEDURE `races` (IN event INT)
 BEGIN
-    SELECT Race.Id, Race.Name, Race.Date, X, Y, Daylight, Distance
-    FROM (Race JOIN Event) WHERE Event.EventorID = eventID;
+    SELECT Race.Id, Race.Name, Date, X, Y, Daylight, Distance
+    FROM (Race JOIN Event ON Race.EventId = Event.Id)
+    WHERE Event.EventorID = event;
 END//
 
 DROP PROCEDURE IF EXISTS `classes` //
@@ -39,34 +40,36 @@ BEGIN
     conv_time(Run.Time) AS Time, conv_time(Run.TimeDiff) AS Difference, Status
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId
-    WHERE RaceClass.RaceId = raceID AND Status != NULL
+    WHERE RaceClass.RaceId = raceID AND Status IS NOT NULL
     ORDER BY Class.Name, COALESCE(Position, 100000);
 END//
 
 DROP PROCEDURE IF EXISTS `startlist` //
 CREATE PROCEDURE `startlist` (IN raceID INT)
 BEGIN
-    SELECT Class.Name AS Class, Person.Name, StartTime
+    SELECT Class.Name AS Class, Person.Name, DATE_FORMAT(StartTime, "%H:%i:%S") as StartTime
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId
-    WHERE RaceClass.RaceId = raceID
+    WHERE RaceClass.RaceId = raceID AND StartTime IS NOT NULL
     ORDER BY Class.Name, StartTime;
 END//
 
 DROP PROCEDURE IF EXISTS `documents` //
-CREATE PROCEDURE `documents` (IN eventID INT)
+CREATE PROCEDURE `documents` (IN event INT)
 BEGIN
-    SELECT Document.Name, Document.Url FROM Document JOIN Event WHERE  Event.EventorId = eventID;
+    SELECT Document.Name, Document.Url
+    FROM (Document JOIN Event ON Document.EventId = Event.Id)
+    WHERE Event.EventorId = event;
 END//
 
 DROP PROCEDURE IF EXISTS `members` //
-CREATE PROCEDURE `members`
+CREATE PROCEDURE `members` ()
 BEGIN
-    SELECT Name, Phone, Address, Person.Id FROM Person JOIN Club WHERE Club.EventorID = 636;
+    SELECT Person.Name, Phone, Address, Person.Id FROM Person JOIN Club WHERE Club.EventorID = 636;
 END//
 
 DROP PROCEDURE IF EXISTS `races_of_person` //
 CREATE PROCEDURE `races_of_person` (IN personID INT)
 BEGIN
-    SELECT RaceId FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id WHERE PersonId = personID;
+    SELECT RaceId FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id WHERE Run.PersonId = personID;
 END//

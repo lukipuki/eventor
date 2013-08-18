@@ -49,15 +49,27 @@ namespace Eventor
             return TimeSpan.FromSeconds(60 * int.Parse(val[0]) + int.Parse(val[1]));
         }
 
+        static string StringFrom(XElement el)
+        {
+            if (el == null)
+                return null;
+            return el.Value;
+        }
+
         private static void SaveClubs(ISession session, XDocument clubsXml)
         {
+            Dictionary<int, Club> clubsById =
+                session.Query<Club>().ToDictionary(x => x.EventorID);
             // TODO: Overwrite old
             foreach (var organ in clubsXml.Element("OrganisationList").Elements("Organisation")
                     .Where(x => x.Element("OrganisationTypeId").Value == "3"))
             {
-                Club club = new Club {
-                    EventorID = int.Parse(organ.Element("OrganisationId").Value)
-                };
+                int eventorID = int.Parse(organ.Element("OrganisationId").Value);
+                Club club;
+                if (clubsById.ContainsKey(eventorID))
+                    club = clubsById[eventorID];
+                else
+                    club = new Club { EventorID = eventorID };
                 club.Name = organ.Element("Name").Value;
                 session.Save(club);
             }
@@ -109,9 +121,9 @@ namespace Eventor
         static void SaveEvents(ISession session, XDocument eventXml)
         {
             Dictionary<int, Event> eventsById =
-                (from even in session.Query<Event>() select even).ToDictionary(x => x.EventorID);
+                session.Query<Event>().ToDictionary(x => x.EventorID);
             Dictionary<int, Race> racesById =
-                (from race in session.Query<Race>() select race).ToDictionary(x => x.EventorID);
+                session.Query<Race>().ToDictionary(x => x.EventorID);
 
             foreach (XElement eventEl in eventXml.Element("EventList").Elements("Event"))
             {
@@ -122,9 +134,10 @@ namespace Eventor
                 else
                     even = new Event { EventorID = IntFromElement("EventId", eventEl) };
                 even.Name = eventEl.Element("Name").Value;
-                even.Url = eventEl.Element("WebURL").Value;
+                even.Url = StringFrom(eventEl.Element("WebURL"));
                 even.StartDate = DateFromElement(eventEl.Element("StartDate"));
                 even.FinishDate = DateFromElement(eventEl.Element("FinishDate"));
+                session.SaveOrUpdate(even);
 
                 foreach (XElement raceEl in eventEl.Elements("EventRace"))
                 {
@@ -151,17 +164,15 @@ namespace Eventor
                     }
                     session.SaveOrUpdate(race);
                 }
-                session.SaveOrUpdate(even);
             }
         }
 
         static void SaveDocuments(ISession session, XDocument xml)
         {
             Dictionary<int, Event> eventsById =
-                (from even in session.Query<Event>() select even).ToDictionary(x => x.EventorID);
+                session.Query<Event>().ToDictionary(x => x.EventorID);
             Dictionary<int, Document> documentsById =
-                (from document in session.Query<Document>() select document)
-                .ToDictionary(x => x.EventorID);
+                session.Query<Document>().ToDictionary(x => x.EventorID);
 
             foreach (var docEl in xml.Element("DocumentList").Elements("Document"))
             {
@@ -199,13 +210,17 @@ namespace Eventor
                 int eventorID = IntFromElement("EventClassId", clasEl);
                 Class clas;
                 if (classesById.ContainsKey(eventorID))
+                {
                     clas = classesById[eventorID];
+                    classesById.Remove(eventorID);
+                }
                 else
                 {
                     clas = new Class { EventorID = eventorID };
                     even.AddClass(clas);
                 }
                 clas.Name = clasEl.Element("ClassShortName").Value;
+                session.SaveOrUpdate(clas);
                 Dictionary<int, RaceClass> raceClassById =
                     (from raceClass in session.Query<RaceClass>()
                      where raceClass.Class == clas
@@ -218,8 +233,12 @@ namespace Eventor
 
                     RaceClass raceClass;
                     if (raceClassById.ContainsKey(eventorID))
+                    {
                         raceClass = raceClassById[eventorID];
-                    else raceClass = new RaceClass {
+                        raceClassById.Remove(eventorID);
+                    }
+                    else raceClass = new RaceClass
+                    {
                         EventorID = eventorID,
                         Race = racesById[IntFromElement("EventRaceId", clasInfo)],
                         Class = clas
@@ -230,12 +249,20 @@ namespace Eventor
                     session.SaveOrUpdate(raceClass);
                 }
 
-                session.SaveOrUpdate(clas);
+                // TODO: Delete, check cascading
+                // foreach (var raceClass in raceClassById)
+                //     session.Delete(raceClass);
+
             }
+
+            // foreach (Class clas in classesById.Values)
+            //     session.Delete(clas);
         }
 
         static void SaveStartlist(ISession session, XDocument xml)
         {
+            if (xml.Element("StartList").Element("Event") == null)
+                return;
             int eventID = IntFromElement("EventId", xml.Element("StartList").Element("Event"));
             Event even =
                 (from eve in session.Query<Event>() where eve.EventorID == eventID select eve)
@@ -253,6 +280,8 @@ namespace Eventor
                  where run.RaceClass.Race.Event == even
                  select run)
                 .ToDictionary(x => System.Tuple.Create(x.Person.Id, x.RaceClass.Id));
+            bool singleDay =
+                xml.Element("StartList").Element("Event").Attribute("eventForm").Value == "IndSingleDay";
 
             foreach (var startlist in xml.Element("StartList").Elements("ClassStart"))
             {
@@ -260,11 +289,22 @@ namespace Eventor
                 foreach (var personSta in startlist.Elements("PersonStart"))
                 {
                     // TODO: What if the person doesn't have an ID?
+                    if (personSta.Element("Person").Element("PersonId") == null)
+                        continue;
                     int personID = IntFromElement("PersonId", personSta.Element("Person"));
                     Person person = peopleById[personID];
-                    foreach (XElement raceSta in personSta.Elements("RaceStart"))
+                    IEnumerable<XElement> raceStarts;
+                    if (singleDay)
+                        raceStarts = new XElement[] {personSta};
+                    else
+                        raceStarts = personSta.Elements("RaceStart");
+                    foreach (XElement raceSta in raceStarts)
                     {
-                        int raceID = IntFromElement("EventRaceId", raceSta.Element("EventRace"));
+                        int raceID;
+                        if (singleDay)
+                            raceID = even.Races[0].EventorID;
+                        else
+                            raceID = IntFromElement("EventRaceId", raceSta.Element("EventRace"));
                         RaceClass raceClass =
                             raceClassRetr[System.Tuple.Create(raceID, classID)];
 
@@ -291,9 +331,6 @@ namespace Eventor
             Event even =
                 (from eve in session.Query<Event>() where eve.EventorID == eventID select eve)
                 .Single();
-            Dictionary<int, Class> classesById =
-                (from clas in session.Query<Class>() where clas.Event == even select clas)
-                .ToDictionary(x => x.EventorID);
             Dictionary<int, Person> peopleById =
                 (from person in session.Query<Person>()
                  where person.EventorID != null select person).ToDictionary(x => (int)x.EventorID);
@@ -307,6 +344,8 @@ namespace Eventor
                  where run.RaceClass.Race.Event == even
                  select run)
                 .ToDictionary(x => System.Tuple.Create(x.Person.Id, x.RaceClass.Id));
+            bool singleDay =
+                xml.Element("ResultList").Element("Event").Attribute("eventForm").Value == "IndSingleDay";
 
             foreach (var result in xml.Element("ResultList").Elements("ClassResult"))
             {
@@ -319,7 +358,6 @@ namespace Eventor
                     session.Update(raceClass);
                 }
 
-                Class clas = classesById[classID];
                 foreach (var personRes in result.Elements("PersonResult"))
                 {
                     // TODO: What if the person doesn't have an ID?
@@ -329,7 +367,7 @@ namespace Eventor
                     {
                         int raceID = IntFromElement("EventRaceId", raceRes.Element("EventRace"));
                         RaceClass raceClass =
-                            raceClassRetr[System.Tuple.Create(raceID, clas.EventorID)];
+                            raceClassRetr[System.Tuple.Create(raceID, classID)];
 
                         Run run;
                         var runId = System.Tuple.Create(person.Id, raceClass.Id);
@@ -359,68 +397,83 @@ namespace Eventor
             }
         }
 
-        public static void Main()
+        private static WebClient _client = null;
+        private static WebClient Client
+        {
+            get
+            {
+                if (_client == null)
+                {
+                    ServicePointManager.ServerCertificateValidationCallback = Validator;
+                    string ApiKey = ConfigurationManager.AppSettings["ApiKey"];
+                    _client = new WebClient();
+                    _client.Headers.Add("ApiKey", ApiKey);
+                }
+                return _client;
+            }
+        }
+
+        static string baseUrl = "https://eventor.orientering.se/api/";
+        private static XDocument DownloadXml(string url)
+        {
+            string xml = Client.DownloadString(baseUrl + url);
+            return XDocument.Parse(xml);
+        }
+
+        public static void SynchronizeEverything(IEnumerable<int> eventIDs)
         {
             Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
-
-            // ServicePointManager.ServerCertificateValidationCallback = Validator;
-            // string ApiKey = ConfigurationManager.AppSettings["ApiKey"];
-            // string baseUrl = "https://eventor.orientering.se/api/";
-            // var client = new WebClient();
-            // client.Headers.Add("ApiKey", ApiKey);
-            // string responseString;
-
+            string events = string.Join(",", eventIDs.Select(x => x.ToString()));
             try
             {
-                // var bytes = client.DownloadData(baseUrl + "organisations");
-                // responseString = System.Text.Encoding.UTF8.GetString(bytes);
-                // System.Console.WriteLine(responseString);
+                // XDocument clubsXml = DownloadXml("organisations");
+                // clubsXml.Save("XML/clubs.xml");
                 XDocument clubsXml = XDocument.Load("XML/clubs.xml");
 
-                // var bytes = client.DownloadData(baseUrl + "persons/organisations/636?includeContactDetails=true");
-                // responseString = System.Text.Encoding.UTF8.GetString(bytes);
-                // System.Console.WriteLine(responseString);
-                // XDocument peopleXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
+                // XDocument peopleXml = DownloadXml("persons/organisations/636?includeContactDetails=true");
+                // peopleXml.Save("XML/people.xml");
                 XDocument peopleXml = XDocument.Load("XML/people.xml");
 
-                // var bytes = client.DownloadData(baseUrl + "events?eventIds=5113");
-                // responseString = System.Text.Encoding.UTF8.GetString(bytes);
-                // System.Console.WriteLine(responseString);
-                // XDocument eventXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
+                // XDocument eventXml = DownloadXml("events?eventIds=" + events);
+                // eventXml.Save("XML/events.xml");
                 XDocument eventXml = XDocument.Load("XML/events.xml");
 
-                // var bytes = client.DownloadData(baseUrl + "events/documents?eventIds=5113");
-                // responseString = System.Text.Encoding.UTF8.GetString(bytes);
-                // System.Console.WriteLine(responseString);
-                // XDocument documentXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
+                // XDocument documentXml = DownloadXml("events/documents?eventIds=" + events);
+                // documentXml.Save("XML/documents.xml");
                 XDocument documentXml = XDocument.Load("XML/documents.xml");
 
-                // var bytes = client.DownloadData(baseUrl + "eventclasses?eventId=5113");
-                // responseString = System.Text.Encoding.UTF8.GetString(bytes);
-                // System.Console.WriteLine(responseString);
-                // XDocument classesXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
-                XDocument classesXml = XDocument.Load("XML/classes.xml");
+                var classes = new List<XDocument> ();
+                var results = new List<XDocument> ();
+                var startlists = new List<XDocument> ();
+                foreach (int eventID in eventIDs)
+                {
+                    // XDocument classesXml = DownloadXml("eventclasses?eventId=" + eventID);
+                    // classesXml.Save("XML/classes-" + eventID + ".xml");
+                    XDocument classesXml = XDocument.Load("XML/classes-" + eventID + ".xml");
+                    classes.Add(classesXml);
 
-                // var bytes = client.DownloadData(baseUrl + "results/organisation?eventId=5113&organisationIds=636&top=1");
-                // var bytes = client.DownloadData(baseUrl + "results/organisation?eventId=5113&organisationIds=636");
-                // responseString = System.Text.Encoding.UTF8.GetString(bytes);
-                // System.Console.WriteLine(responseString);
-                // XDocument resultsXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
-                XDocument resultsXml = XDocument.Load("XML/results.xml");
+                    // string resultUrl =
+                    //     String.Format("results/organisation?eventId={0}&organisationIds=636", eventID);
+                    // XDocument resultsXml = DownloadXml(resultUrl);
+                    // resultsXml.Save("XML/results-" + eventID + ".xml");
+                    XDocument resultsXml = XDocument.Load("XML/results-" + eventID + ".xml");
+                    results.Add(resultsXml);
 
-                // var bytes = client.DownloadData(baseUrl + "starts/organisation?eventId=5113&organisationIds=636");
-                // responseString = System.Text.Encoding.UTF8.GetString(bytes);
-                // System.Console.WriteLine(responseString);
-                // XDocument startlistXml = XDocument.Load(new MemoryStream(UTF8Encoding.Default.GetBytes(responseString)));
-                XDocument startlistXml = XDocument.Load("XML/startlist.xml");
+                    // string startlistUrl =
+                    //     String.Format("starts/organisation?eventId={0}&organisationIds=636", eventID);
+                    // XDocument startlistXml = DownloadXml(startlistUrl);
+                    // startlistXml.Save("XML/startlists-" + eventID + ".xml");
+                    XDocument startlistXml = XDocument.Load("XML/startlists-" + eventID + ".xml");
+                    startlists.Add(startlistXml);
+                }
 
                 using (var session = NHibernateHelper.OpenSession())
                 {
-                    // using (var transaction = session.BeginTransaction())
-                    // {
-                    //     SaveClubs(session, clubsXml);
-                    //     transaction.Commit();
-                    // }
+                    using (var transaction = session.BeginTransaction())
+                    {
+                        SaveClubs(session, clubsXml);
+                        transaction.Commit();
+                    }
 
                     var centrum = (from club in session.Query<Club>()
                                    where club.EventorID == 636
@@ -444,29 +497,40 @@ namespace Eventor
                         transaction.Commit();
                     }
 
-                    using (var transaction = session.BeginTransaction())
-                    {
-                        SaveClasses(session, classesXml, 5113);
-                        transaction.Commit();
-                    }
+                    int[] q = eventIDs.ToArray();
+                    int ind = 0;
+                    foreach (var classesXml in classes)
+                        using (var transaction = session.BeginTransaction())
+                        {
+                            SaveClasses(session, classesXml, q[ind]);
+                            ind++;
+                            transaction.Commit();
+                        }
 
-                    using (var transaction = session.BeginTransaction())
-                    {
-                        SaveStartlist(session, startlistXml);
-                        transaction.Commit();
-                    }
+                    foreach (var startlistXml in startlists)
+                        using (var transaction = session.BeginTransaction())
+                        {
+                            SaveStartlist(session, startlistXml);
+                            transaction.Commit();
+                        }
 
-                    using (var transaction = session.BeginTransaction())
-                    {
-                        SaveResults(session, resultsXml);
-                        transaction.Commit();
-                    }
+                    foreach (var resultsXml in results)
+                        using (var transaction = session.BeginTransaction())
+                        {
+                            SaveResults(session, resultsXml);
+                            transaction.Commit();
+                        }
                 }
             }
             catch (Exception e)
             {
                 System.Console.WriteLine(e);
             }
+        }
+
+        public static void Main()
+        {
+            SynchronizeEverything(new int[] {5113, 7344, 4511});
         }
     }
 }

@@ -43,17 +43,6 @@ namespace Eventor
        }
    }
 
-   public class ClassMap : ClassMap<Class>
-   {
-       public ClassMap()
-       {
-           Id(x => x.Id);
-           Map(x => x.EventorID).Not.Nullable();
-           Map(x => x.Name);
-           References(x => x.Event).Not.Nullable();
-       }
-   }
-
    public class DocumentMap : ClassMap<Document>
    {
        public DocumentMap()
@@ -62,6 +51,18 @@ namespace Eventor
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Name);
            Map(x => x.Url);
+           References(x => x.Event).Not.Nullable();
+       }
+   }
+
+   public class ClassMap : ClassMap<Class>
+   {
+       public ClassMap()
+       {
+           Id(x => x.Id);
+           Map(x => x.EventorID).Not.Nullable();
+           Map(x => x.Name);
+           HasMany(x => x.RaceClasses).Inverse();
            References(x => x.Event).Not.Nullable();
        }
    }
@@ -78,6 +79,7 @@ namespace Eventor
            Map(x => x.Daylight);
            Map(x => x.X);
            Map(x => x.Y);
+           HasMany(x => x.RaceClasses).Inverse();
            References(x => x.Event).Not.Nullable();
        }
    }
@@ -90,6 +92,7 @@ namespace Eventor
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Length);
            Map(x => x.NoRunners);
+           HasMany(x => x.Runs).Inverse();
            References(x => x.Race).Not.Nullable();
            References(x => x.Class).Not.Nullable();
        }
@@ -100,10 +103,23 @@ namespace Eventor
        public RunMap()
        {
            Id(x => x.Id);
-           Map(x => x.EventorID).Not.Nullable();
            References(x => x.Person).Not.Nullable();
            References(x => x.RaceClass).Not.Nullable();
            Map(x => x.StartTime);
+           Map(x => x.Time);
+           Map(x => x.TimeDiff);
+           Map(x => x.Position);
+           Map(x => x.Status);
+       }
+   }
+
+   public class TotalResultMap : ClassMap<TotalResult>
+   {
+       public TotalResultMap()
+       {
+           Id(x => x.Id);
+           References(x => x.Person).Not.Nullable();
+           References(x => x.Class).Not.Nullable();
            Map(x => x.Time);
            Map(x => x.TimeDiff);
            Map(x => x.Position);

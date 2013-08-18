@@ -69,14 +69,6 @@ namespace Eventor
         }
     }
 
-    public class Class
-    {
-        public virtual int Id { get; protected set; }
-        public virtual int EventorID { get; set; }
-        public virtual string Name { get; set; }
-        public virtual Event Event { get; set; }
-    }
-
     public class Document
     {
         public virtual int Id { get; protected set; }
@@ -84,6 +76,15 @@ namespace Eventor
         public virtual Event Event { get; set; }
         public virtual string Name { get; set; }
         public virtual string Url { get; set; }
+    }
+
+    public class Class
+    {
+        public virtual int Id { get; protected set; }
+        public virtual int EventorID { get; set; }
+        public virtual string Name { get; set; }
+        public virtual Event Event { get; set; }
+        public virtual IList<RaceClass> RaceClasses { get; protected set; }
     }
 
     public class Race
@@ -97,6 +98,7 @@ namespace Eventor
         public virtual DateTime Date { get; set; }
         public virtual decimal? X { get; set; }
         public virtual decimal? Y { get; set; }
+        public virtual IList<RaceClass> RaceClasses { get; protected set; }
     }
 
     public class RaceClass
@@ -107,15 +109,26 @@ namespace Eventor
         public virtual Class Class { get; set; }
         public virtual int? Length { get; set; }
         public virtual int? NoRunners { get; set; }
+        public virtual IList<Run> Runs { get; protected set; }
     }
 
     public class Run
     {
         public virtual int Id { get; protected set; }
-        public virtual int EventorID { get; set; }
         public virtual Person Person { get; set; }
         public virtual RaceClass RaceClass { get; set; }
         public virtual DateTime? StartTime { get; set; }
+        public virtual TimeSpan? Time { get; set; }
+        public virtual TimeSpan? TimeDiff { get; set; }
+        public virtual int? Position { get; set; }
+        public virtual string Status { get; set; }
+    }
+
+    public class TotalResult
+    {
+        public virtual int Id { get; protected set; }
+        public virtual Person Person { get; set; }
+        public virtual Class Class { get; set; }
         public virtual TimeSpan? Time { get; set; }
         public virtual TimeSpan? TimeDiff { get; set; }
         public virtual int? Position { get; set; }
