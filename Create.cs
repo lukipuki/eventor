@@ -15,12 +15,19 @@ using System.Threading;
 
 namespace Eventor
 {
-    static class Synchronize
+    public static class Synchronization
     {
         public static bool Validator (object sender, X509Certificate certificate, X509Chain chain,
                 SslPolicyErrors sslPolicyErrors)
         {
             return true;
+        }
+
+        static int? IntFromElementNullable(string name, XElement el)
+        {
+            if (el == null || el.Element(name) == null)
+                return null;
+            return int.Parse(el.Element(name).Value);
         }
 
         static int IntFromElement(string name, XElement el)
@@ -45,6 +52,8 @@ namespace Eventor
 
         static TimeSpan TimeFromElement(string name, XElement el)
         {
+            if (el.Element(name) == null)
+                return TimeSpan.FromSeconds(0);
             string[] val = el.Element(name).Value.Split(':');
             return TimeSpan.FromSeconds(60 * int.Parse(val[0]) + int.Parse(val[1]));
         }
@@ -60,7 +69,6 @@ namespace Eventor
         {
             Dictionary<int, Club> clubsById =
                 session.Query<Club>().ToDictionary(x => x.EventorID);
-            // TODO: Overwrite old
             foreach (var organ in clubsXml.Element("OrganisationList").Elements("Organisation")
                     .Where(x => x.Element("OrganisationTypeId").Value == "3"))
             {
@@ -73,6 +81,27 @@ namespace Eventor
                 club.Name = organ.Element("Name").Value;
                 session.Save(club);
             }
+        }
+
+        private static void SavePerson(XElement personElement, Person person, string name,
+                Club club, ISession session)
+        {
+            person.Name = name;
+            person.Club = club;
+            if (personElement.Element("Address") != null)
+                person.Address =
+                string.Join(", ", personElement.Element("Address").Attributes().Select(x => x.Value));
+
+            XElement telEl = personElement.Element("Tele");
+            if (telEl != null)
+            {
+                if (telEl.Attribute("mobilePhoneNumber") != null)
+                    person.Phone = telEl.Attribute("mobilePhoneNumber").Value;
+                if (telEl.Attribute("mailAddress") != null)
+                    person.Email = telEl.Attribute("mailAddress").Value;
+            }
+
+            session.SaveOrUpdate(person);
         }
 
         private static void SavePeople(Club club, ISession session, XDocument peopleXml)
@@ -100,21 +129,7 @@ namespace Eventor
                 else
                     person = new Person { EventorID = eventorID };
 
-                person.Name = name;
-                person.Club = club;
-                person.Address =
-                    string.Join(", ", personElement.Element("Address").Attributes().Select(x => x.Value));
-
-                XElement telEl = personElement.Element("Tele");
-                if (telEl != null)
-                {
-                    if (telEl.Attribute("mobilePhoneNumber") != null)
-                        person.Phone = telEl.Attribute("mobilePhoneNumber").Value;
-                    if (telEl.Attribute("mailAddress") != null)
-                        person.Email = telEl.Attribute("mailAddress").Value;
-                }
-
-                session.SaveOrUpdate(person);
+                SavePerson(personElement, person, name, club, session);
             }
         }
 
@@ -283,6 +298,10 @@ namespace Eventor
             bool singleDay =
                 xml.Element("StartList").Element("Event").Attribute("eventForm").Value == "IndSingleDay";
 
+            int raceID = 0;
+            if (singleDay)
+                raceID = even.Races[0].EventorID;
+
             foreach (var startlist in xml.Element("StartList").Elements("ClassStart"))
             {
                 int classID = IntFromElement("EventClassId", startlist.Element("EventClass"));
@@ -293,17 +312,11 @@ namespace Eventor
                         continue;
                     int personID = IntFromElement("PersonId", personSta.Element("Person"));
                     Person person = peopleById[personID];
-                    IEnumerable<XElement> raceStarts;
-                    if (singleDay)
-                        raceStarts = new XElement[] {personSta};
-                    else
-                        raceStarts = personSta.Elements("RaceStart");
-                    foreach (XElement raceSta in raceStarts)
+
+                    foreach (XElement raceSta in
+                            singleDay ? new XElement[] {personSta} : personSta.Elements("RaceStart"))
                     {
-                        int raceID;
-                        if (singleDay)
-                            raceID = even.Races[0].EventorID;
-                        else
+                        if (!singleDay)
                             raceID = IntFromElement("EventRaceId", raceSta.Element("EventRace"));
                         RaceClass raceClass =
                             raceClassRetr[System.Tuple.Create(raceID, classID)];
@@ -331,9 +344,14 @@ namespace Eventor
             Event even =
                 (from eve in session.Query<Event>() where eve.EventorID == eventID select eve)
                 .Single();
+            Dictionary<int, Club> clubsById =
+                session.Query<Club>().ToDictionary(x => (int)x.EventorID);
             Dictionary<int, Person> peopleById =
                 (from person in session.Query<Person>()
                  where person.EventorID != null select person).ToDictionary(x => (int)x.EventorID);
+            Dictionary<string, Person> peopleByName =
+                (from person in session.Query<Person>()
+                 where person.EventorID == null select person).ToDictionary(x => x.Name);
             Dictionary<System.Tuple<int, int>, RaceClass> raceClassRetr =
                 (from raceClass in session.Query<RaceClass>()
                  where raceClass.Race.Event == even
@@ -350,22 +368,52 @@ namespace Eventor
             foreach (var result in xml.Element("ResultList").Elements("ClassResult"))
             {
                 int classID = IntFromElement("EventClassId", result.Element("EventClass"));
+                int raceID = 0;
                 foreach (var classInfo in result.Element("EventClass").Elements("ClassRaceInfo"))
                 {
-                    int raceID = IntFromElement("EventRaceId", classInfo);
+                    raceID = IntFromElement("EventRaceId", classInfo);
                     var raceClass = raceClassRetr[System.Tuple.Create(raceID, classID)];
-                    raceClass.NoRunners = int.Parse(classInfo.Attribute("noOfStarts").Value);
-                    session.Update(raceClass);
+                    if (classInfo.Attribute("noOfStarts") != null)
+                    {
+                        raceClass.NoRunners = int.Parse(classInfo.Attribute("noOfStarts").Value);
+                        session.Update(raceClass);
+                    }
                 }
 
-                foreach (var personRes in result.Elements("PersonResult"))
+                bool ok = result.Elements("PersonResult").Any(
+                        x => IntFromElementNullable("OrganisationId", x.Element("Organisation")) == 636
+                        );
+
+                if (ok) foreach (var personRes in result.Elements("PersonResult"))
                 {
-                    // TODO: What if the person doesn't have an ID?
-                    int personID = IntFromElement("PersonId", personRes.Element("Person"));
-                    Person person = peopleById[personID];
-                    foreach (XElement raceRes in personRes.Elements("RaceResult"))
+                    int? personID = IntFromElementNullable("PersonId", personRes.Element("Person"));
+                    XElement nameElement = personRes.Element("Person").Element("PersonName");
+                    string name = nameElement.Element("Given").Value + " " + nameElement.Element("Family").Value;
+
+                    int? clubID = IntFromElementNullable("OrganisationId", personRes.Element("Organisation"));
+                    Club club = null;
+                    if (clubID != null && clubsById.ContainsKey((int)clubID))
+                        club = clubsById[(int)clubID];
+                    Person person;
+                    if (personID != null)
                     {
-                        int raceID = IntFromElement("EventRaceId", raceRes.Element("EventRace"));
+                        if (!peopleById.ContainsKey((int)personID))
+                            peopleById[(int)personID] = new Person { EventorID = personID };
+                        person = peopleById[(int)personID];
+                    }
+                    else
+                    {
+                        if (!peopleByName.ContainsKey(name))
+                            peopleByName[name] = new Person();
+                        person = peopleByName[name];
+                    }
+                    SavePerson(personRes.Element("Person"), person, name, club, session);
+
+                    foreach (XElement raceRes in
+                            singleDay ? new XElement[] {personRes} : personRes.Elements("RaceResult"))
+                    {
+                        if (!singleDay)
+                            raceID = IntFromElement("EventRaceId", raceRes.Element("EventRace"));
                         RaceClass raceClass =
                             raceClassRetr[System.Tuple.Create(raceID, classID)];
 
@@ -423,7 +471,7 @@ namespace Eventor
         public static void SynchronizeEverything(IEnumerable<int> eventIDs)
         {
             Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
-            string events = string.Join(",", eventIDs.Select(x => x.ToString()));
+            string events = string.Join(",", eventIDs);
             try
             {
                 // XDocument clubsXml = DownloadXml("organisations");
@@ -453,7 +501,7 @@ namespace Eventor
                     classes.Add(classesXml);
 
                     // string resultUrl =
-                    //     String.Format("results/organisation?eventId={0}&organisationIds=636", eventID);
+                    //     String.Format("results/organisation?eventId={0}&organisationIds=636&top=1", eventID);
                     // XDocument resultsXml = DownloadXml(resultUrl);
                     // resultsXml.Save("XML/results-" + eventID + ".xml");
                     XDocument resultsXml = XDocument.Load("XML/results-" + eventID + ".xml");

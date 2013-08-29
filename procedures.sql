@@ -36,13 +36,12 @@ END//
 DROP PROCEDURE IF EXISTS `results` //
 CREATE PROCEDURE `results` (IN raceID INT)
 BEGIN
-    SELECT Class.Name AS Class, Person.Name, Position,
+    SELECT Class.Name AS Class, Person.Name AS Person, Position,
     CONCAT(FLOOR(Run.Time / 600000000), ':', LPAD(ROUND(Run.Time / 10000000) % 60, 2, '0')) AS Time,
     CONCAT(FLOOR(Run.TimeDiff / 600000000), ':', LPAD(ROUND(Run.TimeDiff / 10000000) % 60, 2, '0'))
-    AS Difference,
-    Status
-    FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
-    JOIN Class ON Class.Id = ClassId
+    AS Difference, Status, Club.Name AS ClubName
+    FROM (Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
+    JOIN Class ON Class.Id = ClassId) LEFT OUTER JOIN Club ON Person.ClubId = Club.Id
     WHERE RaceClass.RaceId = raceID AND Status IS NOT NULL
     ORDER BY Class.Name, COALESCE(Position, 100000);
 END//
@@ -54,7 +53,7 @@ BEGIN
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId
     WHERE RaceClass.RaceId = raceID AND StartTime IS NOT NULL
-    ORDER BY Class.Name, StartTime;
+    ORDER BY StartTime;
 END//
 
 DROP PROCEDURE IF EXISTS `documents` //

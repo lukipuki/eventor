@@ -1,4 +1,6 @@
 # Build results
 *.exe
 *.exe.config
+*.dll
+bin/
 XML

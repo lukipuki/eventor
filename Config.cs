@@ -25,7 +25,6 @@ namespace Eventor
             _sessionFactory = Fluently.Configure()
                 .Database(MySQLConfiguration.Standard
                           .ConnectionString(c => c .FromAppSetting("ConnectionString"))
-                          // .ShowSql()
                 )
                 .Mappings(m =>
                             m.FluentMappings.AddFromAssemblyOf<Club>()
