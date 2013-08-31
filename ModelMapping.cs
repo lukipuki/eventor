@@ -35,8 +35,8 @@ namespace Eventor
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Name);
            Map(x => x.Url);
-           Map(x => x.StartDate);
-           Map(x => x.FinishDate);
+           Map(x => x.StartDate).Not.Nullable();
+           Map(x => x.FinishDate).Not.Nullable();
            Map(x => x.EntryBreak);
            HasMany(x => x.Classes);
            HasMany(x => x.Races);

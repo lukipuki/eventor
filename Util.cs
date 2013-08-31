@@ -30,12 +30,16 @@ namespace Eventor
             return res;
         }
 
-        public static DateTime? DateFromElement(XElement el)
+        public static DateTime DateFromElement(XElement el)
+        {
+            return DateTime.Parse(el.Element("Date").Value + " " + el.Element("Clock").Value);
+        }
+
+        public static DateTime? DateFromElementNullable(XElement el)
         {
             if (el == null)
                 return null;
-            string dat = el.Element("Date").Value + " " + el.Element("Clock").Value;
-            return DateTime.Parse(dat);
+            return DateTime.Parse(el.Element("Date").Value + " " + el.Element("Clock").Value);
         }
 
         public static TimeSpan TimeFromElement(string name, XElement el)

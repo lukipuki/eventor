@@ -6,6 +6,7 @@ using System.Xml.Linq;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Configuration;
 using System.Globalization;
 using System.Threading;
 
@@ -54,11 +55,10 @@ namespace Eventor
 
         private static void SavePeople(Club club, ISession session, XDocument peopleXml)
         {
-            Dictionary<int, Person> peopleById = session.Query<Person>()
-                .Where(x => x.Club == club && x.EventorID != null)
+            Dictionary<int, Person> peopleById = club.People.Where(x => x.EventorID != null)
                 .ToDictionary(x => (int)x.EventorID);
-            Dictionary<string, Person> peopleByName = session.Query<Person>()
-                .Where(x => x.Club == club && x.EventorID == null).ToDictionary(x => x.Name);
+            Dictionary<string, Person> peopleByName = club.People.Where(x => x.EventorID == null)
+                .ToDictionary(x => x.Name);
 
             foreach (var personElement in peopleXml.Element("PersonList").Elements("Person"))
             {
@@ -97,8 +97,10 @@ namespace Eventor
                 even.Url = Util.StringFrom(eventEl.Element("WebURL"));
                 even.StartDate = Util.DateFromElement(eventEl.Element("StartDate"));
                 even.FinishDate = Util.DateFromElement(eventEl.Element("FinishDate"));
-                even.EntryBreak = Util.DateFromElement(eventEl.Elements("EntryBreak").First()
-                        .Element("ValidToDate"));
+                even.EntryBreak = eventEl.Elements("EntryBreak")
+                    .Where(x => x.Element("ValidFromDate") != null)
+                    .Select(x => Util.DateFromElement(x.Element("ValidFromDate")))
+                    .Max();
                 session.SaveOrUpdate(even);
 
                 foreach (XElement raceEl in eventEl.Elements("EventRace"))
@@ -114,7 +116,7 @@ namespace Eventor
                         even.AddRace(race);
                     }
                     race.Name = raceEl.Element("Name").Value;
-                    race.Date = (DateTime)Util.DateFromElement(raceEl.Element("RaceDate"));
+                    race.Date = Util.DateFromElement(raceEl.Element("RaceDate"));
                     race.Daylight = raceEl.Attribute("raceLightCondition").Value == "Day";
                     race.Distance = raceEl.Attribute("raceDistance").Value;
 
@@ -159,10 +161,8 @@ namespace Eventor
         {
             Event even =
                 session.Query<Event>().Where(x => x.EventorID == eventID).Single();
-            Dictionary<int, Race> racesById = session.Query<Race>()
-                .Where(x => x.Event == even).ToDictionary(x => x.EventorID);
-            Dictionary<int, Class> classesById = session.Query<Class>()
-                .Where(x => x.Event == even).ToDictionary(x => x.EventorID);
+            Dictionary<int, Race> racesById = even.Races.ToDictionary(x => x.EventorID);
+            Dictionary<int, Class> classesById = even.Classes.ToDictionary(x => x.EventorID);
 
             foreach (var clasEl in xml.Element("EventClassList").Elements("EventClass"))
             {
@@ -268,7 +268,7 @@ namespace Eventor
                         };
 
                         XElement staEl = raceSta.Element("Start");
-                        run.StartTime = Util.DateFromElement(staEl.Element("StartTime"));
+                        run.StartTime = Util.DateFromElementNullable(staEl.Element("StartTime"));
                         if (staEl.Element("CCardId") != null)
                             run.SI = Util.IntFromElement("CCardId", staEl);
                         session.SaveOrUpdate(run);
@@ -294,7 +294,8 @@ namespace Eventor
                 .Where(x => x.RaceClass.Race.Event == even)
                 .ToDictionary(x => System.Tuple.Create(x.Person.Id, x.RaceClass.Id));
             bool singleDay =
-                xml.Element("ResultList").Element("Event").Attribute("eventForm").Value == "IndSingleDay";
+                xml.Element("ResultList").Element("Event").Attribute("eventForm").Value
+                == "IndSingleDay";
 
             foreach (var result in xml.Element("ResultList").Elements("ClassResult"))
             {
@@ -312,8 +313,9 @@ namespace Eventor
                 }
 
                 bool ok = result.Elements("PersonResult").Any(
-                        x => Util.IntFromElementNullable("OrganisationId", x.Element("Organisation")) == 636
-                        );
+                    x => Util.IntFromElementNullable("OrganisationId", x.Element("Organisation"))
+                         == ourClubID
+                    );
 
                 if (ok) foreach (var personRes in result.Elements("PersonResult"))
                 {
@@ -374,7 +376,7 @@ namespace Eventor
                             case "MisPunch" : run.Status = "felst."; break;
                             case "DidNotStart" : run.Status = "ej start"; break;
                         }
-                        run.StartTime = Util.DateFromElement(resEl.Element("StartTime"));
+                        run.StartTime = Util.DateFromElementNullable(resEl.Element("StartTime"));
                         if (resEl.Element("CCardId") != null)
                             run.SI = Util.IntFromElement("CCardId", resEl);
 
@@ -383,12 +385,15 @@ namespace Eventor
                 }
             }
         }
+
+        private static int ourClubID;
         public static void SynchronizeEvents(IEnumerable<int> eventIDs, bool minimal = false,
                 bool offline = false)
         {
             Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
             bool save = false;
             string events = string.Join(",", eventIDs);
+            ourClubID = int.Parse(ConfigurationManager.AppSettings["ClubId"]);
 
             using (var session = NHibernateHelper.OpenSession())
             {
@@ -403,10 +408,11 @@ namespace Eventor
                         transaction.Commit();
                     }
 
-                    Club club = session.Query<Club>().Where(x => x.EventorID == 636).Single();
+                    Club club = session.Query<Club>().Where(x => x.EventorID == ourClubID).Single();
 
                     XDocument peopleXml = offline ? XDocument.Load("XML/people.xml") :
-                        Util.DownloadXml("persons/organisations/636?includeContactDetails=true");
+                        Util.DownloadXml(
+                            string.Format("persons/organisations/{0}?includeContactDetails=true", ourClubID));
                     if (!offline && save) peopleXml.Save("XML/people.xml");
                     using (var transaction = session.BeginTransaction())
                     {
@@ -438,7 +444,11 @@ namespace Eventor
                 foreach (int eventID in eventIDs)
                 {
                     Event even = session.Query<Event> ().Where(x => x.EventorID == eventID).Single();
-                    // TODO break if minimal and it's too far
+                    if (minimal &&
+                       (DateTime.Now < even.StartDate.AddDays(-7) ||
+                        DateTime.Now > even.FinishDate.AddDays(4)))
+                        continue;
+
                     XDocument classesXml = offline ? XDocument.Load("XML/classes-" + eventID + ".xml")
                         : Util.DownloadXml("eventclasses?eventId=" + eventID);
                     if (!offline && save)
@@ -450,10 +460,11 @@ namespace Eventor
                         transaction.Commit();
                     }
 
-                    if (DateTime.Now <= even.FinishDate || true)
+                    if (DateTime.Now <= even.FinishDate)
                     {
                         string startlistUrl =
-                            String.Format("starts/organisation?eventId={0}&organisationIds=636", eventID);
+                            String.Format("starts/organisation?eventId={0}&organisationIds={1}",
+                                          eventID, ourClubID);
                         XDocument startlistXml = offline ? XDocument.Load("XML/startlists-" + eventID + ".xml")
                             : Util.DownloadXml(startlistUrl);
                         if (!offline && save)
@@ -469,7 +480,8 @@ namespace Eventor
                     if (DateTime.Now >= even.StartDate)
                     {
                         string resultUrl =
-                            String.Format("results/organisation?eventId={0}&organisationIds=636&top=1", eventID);
+                            String.Format("results/organisation?eventId={0}&organisationIds={1}&top=1",
+                                          eventID, ourClubID);
                         XDocument resultsXml = offline ? XDocument.Load("XML/results-" + eventID + ".xml")
                             : Util.DownloadXml(resultUrl);
                         if (!offline && save)
@@ -488,7 +500,7 @@ namespace Eventor
         public static void Main()
         {
             // SynchronizeEvents(new int[] {5113, 7344, 4511, 4512, 4515, 6545, 7524, 7525, 4517, 4518, 3932}, true);
-            SynchronizeEvents(new int[] {4517, 4511, 4512, 4515, 3932, 4518, 6545, 5113}, offline : true);
+            SynchronizeEvents(new int[] {4517, 4511, 4512, 4515, 3932, 4518, 6545, 5113, 7344}, offline : true);
         }
     }
 }

@@ -13,7 +13,8 @@ CREATE PROCEDURE `races` (IN event INT)
 BEGIN
     SELECT Race.Id, Race.Name, Date, X, Y, Daylight, Distance
     FROM (Race JOIN Event ON Race.EventId = Event.Id)
-    WHERE Event.EventorID = event;
+    WHERE Event.EventorID = event
+    ORDER BY Date;
 END//
 
 DROP PROCEDURE IF EXISTS `classes` //
@@ -21,7 +22,8 @@ CREATE PROCEDURE `classes` (IN raceID INT)
 BEGIN
     SELECT Class.Name, Length, NoRunners
     FROM (RaceClass JOIN Class ON ClassId = Class.Id)
-    WHERE RaceClass.RaceId = raceID;
+    WHERE RaceClass.RaceId = raceID
+    ORDER BY Class.Name;
 END//
 
 DROP FUNCTION IF EXISTS `conv_time` //
@@ -67,15 +69,16 @@ END//
 DROP PROCEDURE IF EXISTS `members` //
 CREATE PROCEDURE `members` (IN cl INT)
 BEGIN
-    SELECT Person.Name, Phone, Address, Person.Id
+    SELECT Person.Name, Phone, Address, EventorID
     FROM Person JOIN Club ON Person.ClubId = Club.Id
     WHERE Club.EventorID = cl;
 END//
 
 DROP PROCEDURE IF EXISTS `races_of_person` //
-CREATE PROCEDURE `races_of_person` (IN personID INT)
+CREATE PROCEDURE `races_of_person` (IN pers INT)
 BEGIN
     SELECT RaceId
-    FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id
-    WHERE Run.PersonId = personID;
+    FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id JOIN Person ON Run.PersonId = Person.Id
+    WHERE Person.EventorId = pers
+    ORDER BY RaceId;
 END//

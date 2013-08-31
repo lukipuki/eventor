@@ -36,8 +36,8 @@ namespace Eventor
         public virtual int EventorID { get; set; }
         public virtual string Name { get; set; }
         public virtual string Url { get; set; }
-        public virtual DateTime? StartDate { get; set; }
-        public virtual DateTime? FinishDate { get; set; }
+        public virtual DateTime StartDate { get; set; }
+        public virtual DateTime FinishDate { get; set; }
         public virtual DateTime? EntryBreak { get; set; }
 
         public virtual IList<Class> Classes { get; protected set; }

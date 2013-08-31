@@ -21,14 +21,11 @@ void Page_Load(object sender, EventArgs args)
             IDataReader reader = dbcmd.ExecuteReader();
 
             while (reader.Read())
-            {
-                this.Title += (string)reader["eventId"] + " ";
                 events.Add(int.Parse((string)reader["eventId"]));
-            }
             reader.Close();
         }
     }
 
-    Eventor.Synchronization.SynchronizeEvents(events);
+    Eventor.Synchronization.SynchronizeEvents(events, Request.QueryString["minimal"] != null);
 }
 </script>
