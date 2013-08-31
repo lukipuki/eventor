@@ -13,7 +13,7 @@ void Page_Load(object sender, EventArgs args)
         new MySqlConnection(ConfigurationManager.AppSettings["ConnectionStringWP"]))
     {
         dbcon.Open();
-        DateTime beginning = DateTime.Today.AddDays(-7), end = DateTime.Today.AddDays(14);
+        DateTime beginning = DateTime.Today.AddDays(-7), end = DateTime.Today.AddDays(20);
         using (IDbCommand dbcmd = dbcon.CreateCommand())
         {
             dbcmd.CommandText = string.Format("CALL events_between('{0}', '{1}');",
@@ -27,5 +27,6 @@ void Page_Load(object sender, EventArgs args)
     }
 
     Eventor.Synchronization.SynchronizeEvents(events, Request.QueryString["minimal"] != null);
+    // Eventor.Synchronization.SplitNames();
 }
 </script>

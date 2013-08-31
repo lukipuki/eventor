@@ -19,7 +19,8 @@ namespace Eventor
        {
            Id(x => x.Id);
            Map(x => x.EventorID);
-           Map(x => x.Name);
+           Map(x => x.GivenName);
+           Map(x => x.FamilyName);
            Map(x => x.Address);
            Map(x => x.Phone);
            Map(x => x.Email);

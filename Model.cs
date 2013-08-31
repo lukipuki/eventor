@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using NHibernate.Linq;
 
 namespace Eventor
 {
@@ -23,7 +21,9 @@ namespace Eventor
     {
         public virtual int Id { get; protected set; }
         public virtual int? EventorID { get; set; }
-        public virtual string Name { get; set; }
+        public virtual string Name { get { return GivenName + " " + FamilyName; } }
+        public virtual string GivenName { get; set; }
+        public virtual string FamilyName { get; set; }
         public virtual Club Club { get; set; }
         public virtual string Address { get; set; }
         public virtual string Phone { get; set; }

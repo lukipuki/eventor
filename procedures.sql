@@ -38,7 +38,7 @@ END//
 DROP PROCEDURE IF EXISTS `results` //
 CREATE PROCEDURE `results` (IN raceID INT)
 BEGIN
-    SELECT Class.Name AS Class, Person.Name AS Person, Position,
+    SELECT Class.Name AS Class, CONCAT(Person.GivenName, ' ', Person.FamilyName) AS Person, Position,
     CONCAT(FLOOR(Run.Time / 600000000), ':', LPAD(ROUND(Run.Time / 10000000) % 60, 2, '0')) AS Time,
     CONCAT(FLOOR(Run.TimeDiff / 600000000), ':', LPAD(ROUND(Run.TimeDiff / 10000000) % 60, 2, '0'))
     AS Difference, Status, Club.Name AS ClubName
@@ -51,7 +51,8 @@ END//
 DROP PROCEDURE IF EXISTS `startlist` //
 CREATE PROCEDURE `startlist` (IN raceID INT)
 BEGIN
-    SELECT Class.Name AS Class, Person.Name, DATE_FORMAT(StartTime, "%H:%i:%S") AS StartTime, SI
+    SELECT Class.Name AS Class, CONCAT(Person.GivenName, ' ', Person.FamilyName) AS Name,
+    DATE_FORMAT(StartTime, "%H:%i:%S") AS StartTime, SI
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId JOIN Club ON Person.ClubId = Club.Id
     WHERE RaceClass.RaceId = raceID AND Club.EventorId = 636 AND StartTime IS NOT NULL
@@ -69,16 +70,18 @@ END//
 DROP PROCEDURE IF EXISTS `members` //
 CREATE PROCEDURE `members` (IN cl INT)
 BEGIN
-    SELECT Person.Name, Phone, Address, EventorID
+    SELECT CONCAT(Person.GivenName, ' ', Person.FamilyName), Phone, Address, Person.EventorID
     FROM Person JOIN Club ON Person.ClubId = Club.Id
-    WHERE Club.EventorID = cl;
+    WHERE Club.EventorID = cl
+    ORDER BY Person.FamilyName, Person.GivenName;
 END//
 
 DROP PROCEDURE IF EXISTS `races_of_person` //
 CREATE PROCEDURE `races_of_person` (IN pers INT)
 BEGIN
-    SELECT RaceId
+    SELECT Run.RaceId, Race.Name AS RaceName, Event.Name AS EventName, Event.EventorID AS EventID
     FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id JOIN Person ON Run.PersonId = Person.Id
+    JOIN Race ON Race.Id = RaceClass.RaceId JOIN Event ON Event.Id = Race.EventId
     WHERE Person.EventorId = pers
-    ORDER BY RaceId;
+    ORDER BY Run.RaceId;
 END//

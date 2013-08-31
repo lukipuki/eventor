@@ -1,11 +1,9 @@
-using System;
-using System.Linq;
 using NHibernate;
 using NHibernate.Linq;
+using System;
+using System.Linq;
 using System.Xml.Linq;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using System.Configuration;
 using System.Globalization;
 using System.Threading;
@@ -18,10 +16,10 @@ namespace Eventor
         {
             Dictionary<int, Club> clubsById =
                 session.Query<Club>().ToDictionary(x => x.EventorID);
-            foreach (var organ in clubsXml.Element("OrganisationList").Elements("Organisation")
+            foreach (XElement organ in clubsXml.Element("OrganisationList").Elements("Organisation")
                     .Where(x => x.Element("OrganisationTypeId").Value == "3"))
             {
-                int eventorID = int.Parse(organ.Element("OrganisationId").Value);
+                int eventorID = Util.IntFromElement("OrganisationId", organ);
                 Club club;
                 if (clubsById.ContainsKey(eventorID))
                     club = clubsById[eventorID];
@@ -32,10 +30,12 @@ namespace Eventor
             }
         }
 
-        private static void SavePerson(XElement personElement, Person person, string name,
+        private static void SavePerson(XElement personElement, Person person,
                 Club club, ISession session)
         {
-            person.Name = name;
+            person.GivenName = string.Join(" ",
+                personElement.Element("PersonName").Elements("Given").Select(x => x.Value));
+            person.FamilyName = Util.StringFrom(personElement.Element("PersonName").Element("Family"));
             person.Club = club;
             if (personElement.Element("Address") != null)
                 person.Address =
@@ -49,7 +49,6 @@ namespace Eventor
                 if (telEl.Attribute("mailAddress") != null)
                     person.Email = telEl.Attribute("mailAddress").Value;
             }
-
             session.SaveOrUpdate(person);
         }
 
@@ -60,11 +59,11 @@ namespace Eventor
             Dictionary<string, Person> peopleByName = club.People.Where(x => x.EventorID == null)
                 .ToDictionary(x => x.Name);
 
-            foreach (var personElement in peopleXml.Element("PersonList").Elements("Person"))
+            foreach (XElement personElement in peopleXml.Element("PersonList").Elements("Person"))
             {
                 XElement nameElement = personElement.Element("PersonName");
                 string name = nameElement.Element("Given").Value + " " + nameElement.Element("Family").Value;
-                int eventorID = Int32.Parse(personElement.Element("PersonId").Value);
+                int eventorID = Util.IntFromElement("PersonId", personElement);
 
                 Person person;
                 if (peopleById.ContainsKey(eventorID))
@@ -74,7 +73,7 @@ namespace Eventor
                 else
                     person = new Person { EventorID = eventorID };
 
-                SavePerson(personElement, person, name, club, session);
+                SavePerson(personElement, person, club, session);
             }
         }
 
@@ -92,7 +91,8 @@ namespace Eventor
                 if (eventsById.ContainsKey(eventorID))
                     even = eventsById[eventorID];
                 else
-                    even = new Event { EventorID = Util.IntFromElement("EventId", eventEl) };
+                    even = new Event { EventorID = eventorID };
+
                 even.Name = eventEl.Element("Name").Value;
                 even.Url = Util.StringFrom(eventEl.Element("WebURL"));
                 even.StartDate = Util.DateFromElement(eventEl.Element("StartDate"));
@@ -100,7 +100,7 @@ namespace Eventor
                 even.EntryBreak = eventEl.Elements("EntryBreak")
                     .Where(x => x.Element("ValidFromDate") != null)
                     .Select(x => Util.DateFromElement(x.Element("ValidFromDate")))
-                    .Max();
+                    .DefaultIfEmpty(even.StartDate.AddDays(-7)).Max();
                 session.SaveOrUpdate(even);
 
                 foreach (XElement raceEl in eventEl.Elements("EventRace"))
@@ -138,7 +138,7 @@ namespace Eventor
             Dictionary<int, Document> documentsById =
                 session.Query<Document>().ToDictionary(x => x.EventorID);
 
-            foreach (var docEl in xml.Element("DocumentList").Elements("Document"))
+            foreach (XElement docEl in xml.Element("DocumentList").Elements("Document"))
             {
                 int eventorID = int.Parse(docEl.Attribute("id").Value);
 
@@ -150,7 +150,6 @@ namespace Eventor
                     document = new Document { EventorID = eventorID };
                     eventsById[int.Parse(docEl.Attribute("referenceId").Value)].AddDocument(document);
                 }
-
                 document.Name = docEl.Attribute("name").Value;
                 document.Url = docEl.Attribute("url").Value;
                 session.SaveOrUpdate(document);
@@ -164,7 +163,7 @@ namespace Eventor
             Dictionary<int, Race> racesById = even.Races.ToDictionary(x => x.EventorID);
             Dictionary<int, Class> classesById = even.Classes.ToDictionary(x => x.EventorID);
 
-            foreach (var clasEl in xml.Element("EventClassList").Elements("EventClass"))
+            foreach (XElement clasEl in xml.Element("EventClassList").Elements("EventClass"))
             {
                 int eventorID = Util.IntFromElement("EventClassId", clasEl);
                 Class clas;
@@ -184,7 +183,7 @@ namespace Eventor
                 Dictionary<int, RaceClass> raceClassById = session.Query<RaceClass>()
                     .Where(x => x.Class == clas).ToDictionary(x => x.EventorID);
 
-                foreach (var clasInfo in clasEl.Elements("ClassRaceInfo"))
+                foreach (XElement clasInfo in clasEl.Elements("ClassRaceInfo"))
                 {
                     eventorID = Util.IntFromElement("ClassRaceInfoId", clasInfo);
 
@@ -218,8 +217,8 @@ namespace Eventor
 
         static void SaveStartlist(ISession session, XDocument xml)
         {
-            if (xml.Element("StartList").Element("Event") == null)
-                return;
+            if (xml.Element("StartList").Element("Event") == null) return;
+
             int eventID = Util.IntFromElement("EventId", xml.Element("StartList").Element("Event"));
             Event even = session.Query<Event>().Where(x => x.EventorID == eventID).Single();
 
@@ -334,7 +333,7 @@ namespace Eventor
                         {
                             peopleById[(int)personID] = new Person { EventorID = personID };
                             SavePerson(personRes.Element("Person"), peopleById[(int)personID],
-                                    name, club, session);
+                                    club, session);
                         }
                         person = peopleById[(int)personID];
                     }
@@ -343,7 +342,7 @@ namespace Eventor
                         if (!peopleByName.ContainsKey(name))
                             peopleByName[name] = new Person();
                         person = peopleByName[name];
-                        SavePerson(personRes.Element("Person"), person, name, club, session);
+                        SavePerson(personRes.Element("Person"), person, club, session);
                     }
 
                     foreach (XElement raceRes in
@@ -388,10 +387,9 @@ namespace Eventor
 
         private static int ourClubID;
         public static void SynchronizeEvents(IEnumerable<int> eventIDs, bool minimal = false,
-                bool offline = false)
+                bool offline = false, bool save = false)
         {
             Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
-            bool save = false;
             string events = string.Join(",", eventIDs);
             ourClubID = int.Parse(ConfigurationManager.AppSettings["ClubId"]);
 
