@@ -3,7 +3,7 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS `event` //
 CREATE PROCEDURE `event` (IN eventID INT)
 BEGIN
-    SELECT Name, Url, StartDate, FinishDate
+    SELECT Name, Url, StartDate, FinishDate, EntryBreak
     FROM Event
     WHERE EventorID = eventID;
 END//
@@ -49,10 +49,10 @@ END//
 DROP PROCEDURE IF EXISTS `startlist` //
 CREATE PROCEDURE `startlist` (IN raceID INT)
 BEGIN
-    SELECT Class.Name AS Class, Person.Name, DATE_FORMAT(StartTime, "%H:%i:%S") as StartTime
+    SELECT Class.Name AS Class, Person.Name, DATE_FORMAT(StartTime, "%H:%i:%S") AS StartTime, SI
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
-    JOIN Class ON Class.Id = ClassId
-    WHERE RaceClass.RaceId = raceID AND StartTime IS NOT NULL
+    JOIN Class ON Class.Id = ClassId JOIN Club ON Person.ClubId = Club.Id
+    WHERE RaceClass.RaceId = raceID AND Club.EventorId = 636 AND StartTime IS NOT NULL
     ORDER BY StartTime;
 END//
 
@@ -65,13 +65,17 @@ BEGIN
 END//
 
 DROP PROCEDURE IF EXISTS `members` //
-CREATE PROCEDURE `members` ()
+CREATE PROCEDURE `members` (IN cl INT)
 BEGIN
-    SELECT Person.Name, Phone, Address, Person.Id FROM Person JOIN Club WHERE Club.EventorID = 636;
+    SELECT Person.Name, Phone, Address, Person.Id
+    FROM Person JOIN Club ON Person.ClubId = Club.Id
+    WHERE Club.EventorID = cl;
 END//
 
 DROP PROCEDURE IF EXISTS `races_of_person` //
 CREATE PROCEDURE `races_of_person` (IN personID INT)
 BEGIN
-    SELECT RaceId FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id WHERE Run.PersonId = personID;
+    SELECT RaceId
+    FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id
+    WHERE Run.PersonId = personID;
 END//

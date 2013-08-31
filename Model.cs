@@ -38,6 +38,7 @@ namespace Eventor
         public virtual string Url { get; set; }
         public virtual DateTime? StartDate { get; set; }
         public virtual DateTime? FinishDate { get; set; }
+        public virtual DateTime? EntryBreak { get; set; }
 
         public virtual IList<Class> Classes { get; protected set; }
         public virtual IList<Race> Races { get; protected set; }
@@ -121,6 +122,7 @@ namespace Eventor
         public virtual TimeSpan? Time { get; set; }
         public virtual TimeSpan? TimeDiff { get; set; }
         public virtual int? Position { get; set; }
+        public virtual int? SI { get; set; }
         public virtual string Status { get; set; }
     }
 

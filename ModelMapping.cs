@@ -37,6 +37,7 @@ namespace Eventor
            Map(x => x.Url);
            Map(x => x.StartDate);
            Map(x => x.FinishDate);
+           Map(x => x.EntryBreak);
            HasMany(x => x.Classes);
            HasMany(x => x.Races);
            HasMany(x => x.Documents);
@@ -109,6 +110,7 @@ namespace Eventor
            Map(x => x.Time);
            Map(x => x.TimeDiff);
            Map(x => x.Position);
+           Map(x => x.SI);
            Map(x => x.Status);
        }
    }
