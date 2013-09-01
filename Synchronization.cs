@@ -278,6 +278,11 @@ namespace Eventor
 
         static void SaveResults(ISession session, XDocument xml)
         {
+            //TODO support relays
+            if (xml.Element("ResultList").Element("Event").Attribute("eventForm").Value ==
+                "RelaySingleDay")
+                return;
+
             int eventID = Util.IntFromElement("EventId", xml.Element("ResultList").Element("Event"));
             Event even = session.Query<Event>().Where(x => x.EventorID == eventID).First();
             Dictionary<int, Club> clubsById =
@@ -441,7 +446,11 @@ namespace Eventor
 
                 foreach (int eventID in eventIDs)
                 {
+                    // Event doesn't exist
+                    if (!session.Query<Event>().Any(x => x.EventorID == eventID)) continue;
+
                     Event even = session.Query<Event> ().Where(x => x.EventorID == eventID).Single();
+
                     if (minimal &&
                        (DateTime.Now < even.StartDate.AddDays(-7) ||
                         DateTime.Now > even.FinishDate.AddDays(4)))
@@ -498,7 +507,7 @@ namespace Eventor
         public static void Main()
         {
             // SynchronizeEvents(new int[] {5113, 7344, 4511, 4512, 4515, 6545, 7524, 7525, 4517, 4518, 3932}, true);
-            SynchronizeEvents(new int[] {4517, 4511, 4512, 4515, 3932, 4518, 6545, 5113, 7344}, offline : true);
+            SynchronizeEvents(new int[] {4507, 3826, 4168}, offline : true, save : true);
         }
     }
 }

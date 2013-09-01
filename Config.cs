@@ -24,16 +24,15 @@ namespace Eventor
         {
             _sessionFactory = Fluently.Configure()
                 .Database(MySQLConfiguration.Standard
-                          .ConnectionString(c => c .FromAppSetting("ConnectionString"))
-                )
-                .Mappings(m =>
-                            m.FluentMappings.AddFromAssemblyOf<Club>()
-                            .Conventions
-                            .Add(ForeignKey.EndsWith("Id"), Table.Is(x => x.EntityType.Name))
-                                 // DefaultCascade.DeleteOrphan())
+                          .ConnectionString(c => c.FromAppSetting("ConnectionString"))
                          )
-                .ExposeConfiguration(cfg => new SchemaExport(cfg)
-                                                .Create(false, false))
+                .Mappings(m =>
+                          m.FluentMappings.AddFromAssemblyOf<Club>()
+                          .Conventions
+                          .Add(ForeignKey.EndsWith("Id"), Table.Is(x => x.EntityType.Name))
+                        // DefaultCascade.DeleteOrphan())
+                         )
+                .ExposeConfiguration(cfg => new SchemaExport(cfg).Create(false, false))
                 .BuildSessionFactory();
         }
 
