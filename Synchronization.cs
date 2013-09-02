@@ -10,6 +10,12 @@ using System.Threading;
 
 namespace Eventor
 {
+    public class EventInformation
+    {
+        int EventorID { get; set; }
+        int WordPressID { get; set; }
+    }
+
     public static class Synchronization
     {
         private static void SaveClubs(ISession session, XDocument clubsXml)
@@ -180,8 +186,8 @@ namespace Eventor
                 clas.Name = clasEl.Element("ClassShortName").Value;
                 session.SaveOrUpdate(clas);
 
-                Dictionary<int, RaceClass> raceClassById = session.Query<RaceClass>()
-                    .Where(x => x.Class == clas).ToDictionary(x => x.EventorID);
+                Dictionary<int, RaceClass> raceClassById =
+                    clas.RaceClasses.ToDictionary(x => x.EventorID);
 
                 foreach (XElement clasInfo in clasEl.Elements("ClassRaceInfo"))
                 {
@@ -193,12 +199,15 @@ namespace Eventor
                         raceClass = raceClassById[eventorID];
                         raceClassById.Remove(eventorID);
                     }
-                    else raceClass = new RaceClass
+                    else
                     {
-                        EventorID = eventorID,
-                        Race = racesById[Util.IntFromElement("EventRaceId", clasInfo)],
-                        Class = clas
-                    };
+                        raceClass = new RaceClass
+                        {
+                            EventorID = eventorID,
+                            Race = racesById[Util.IntFromElement("EventRaceId", clasInfo)],
+                        };
+                        clas.AddRaceClass(raceClass);
+                    }
                     double? len = Util.DoubleFromElement("CourseLength", clasInfo);
                     if (len != null)
                         raceClass.Length = (int)Math.Round((double)len);
@@ -213,6 +222,26 @@ namespace Eventor
 
             // foreach (Class clas in classesById.Values)
             //     session.Delete(clas);
+        }
+
+        private static void HasInformation(Event even, ISession session)
+        {
+            foreach (Race race in even.Races)
+            {
+                HasInformation(race, session);
+                if (race.HasResults) even.HasResults = true;
+                if (race.HasStartlist) even.HasStartlist = true;
+            }
+            session.Update(even);
+        }
+
+        private static void HasInformation(Race race, ISession session)
+        {
+            race.HasResults = session.Query<Run>()
+                .Any(x => x.Status != null && x.RaceClass.Race == race);
+            race.HasStartlist = session.Query<Run>()
+                .Any(x => x.StartTime != null && x.RaceClass.Race == race);
+            session.Update(race);
         }
 
         static void SaveStartlist(ISession session, XDocument xml)
@@ -274,13 +303,13 @@ namespace Eventor
                     }
                 }
             }
+            HasInformation(even, session);
         }
 
         static void SaveResults(ISession session, XDocument xml)
         {
-            //TODO support relays
-            if (xml.Element("ResultList").Element("Event").Attribute("eventForm").Value ==
-                "RelaySingleDay")
+            //TODO support not only individual competitions
+            if (!xml.Element("ResultList").Element("Event").Attribute("eventForm").Value.StartsWith("Ind"))
                 return;
 
             int eventID = Util.IntFromElement("EventId", xml.Element("ResultList").Element("Event"));
@@ -388,6 +417,19 @@ namespace Eventor
                     }
                 }
             }
+
+            HasInformation(even, session);
+        }
+
+        public static void EventsInformation()
+        {
+            using (var session = NHibernateHelper.OpenSession())
+                using (var transaction = session.BeginTransaction())
+                {
+                    foreach (Event even in session.Query<Event> ())
+                        HasInformation(even, session);
+                    transaction.Commit();
+                }
         }
 
         private static int ourClubID;
@@ -424,6 +466,8 @@ namespace Eventor
                     }
                 }
 
+                if (eventIDs.Count() == 0) return;
+
                 XDocument eventXml = offline ? XDocument.Load("XML/events.xml") :
                     Util.DownloadXml("events?eventIds=" + events + "&includeEntryBreaks=true");
                 if (!offline && save) eventXml.Save("XML/events.xml");
@@ -448,7 +492,6 @@ namespace Eventor
                 {
                     // Event doesn't exist
                     if (!session.Query<Event>().Any(x => x.EventorID == eventID)) continue;
-
                     Event even = session.Query<Event> ().Where(x => x.EventorID == eventID).Single();
 
                     if (minimal &&
@@ -466,6 +509,21 @@ namespace Eventor
                         SaveClasses(session, classesXml, eventID);
                         transaction.Commit();
                     }
+
+                    // string entriesUrl =
+                    //     String.Format("entries?eventIds={0}&organisationIds={1}",
+                    //                   eventID, ourClubID);
+                    // XDocument entriesXml = offline ? XDocument.Load("XML/entries-" + eventID + ".xml")
+                    //     : Util.DownloadXml(entriesUrl);
+                    // if (!offline && save)
+                    //     entriesXml.Save("XML/entriess-" + eventID + ".xml");
+
+                    // using (var transaction = session.BeginTransaction())
+                    // {
+                    //     SaveEntries(session, entriesXml);
+                    //     transaction.Commit();
+                    // }
+
 
                     if (DateTime.Now <= even.FinishDate)
                     {
@@ -507,7 +565,7 @@ namespace Eventor
         public static void Main()
         {
             // SynchronizeEvents(new int[] {5113, 7344, 4511, 4512, 4515, 6545, 7524, 7525, 4517, 4518, 3932}, true);
-            SynchronizeEvents(new int[] {4507, 3826, 4168}, offline : true, save : true);
+            SynchronizeEvents(new int[] {4517}, offline : false, save : true, minimal : false);
         }
     }
 }

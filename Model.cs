@@ -34,11 +34,14 @@ namespace Eventor
     {
         public virtual int Id { get; protected set; }
         public virtual int EventorID { get; set; }
+        public virtual int WordPressID { get; set; }
         public virtual string Name { get; set; }
         public virtual string Url { get; set; }
         public virtual DateTime StartDate { get; set; }
         public virtual DateTime FinishDate { get; set; }
         public virtual DateTime? EntryBreak { get; set; }
+        public virtual bool HasResults { get; set; }
+        public virtual bool HasStartlist { get; set; }
 
         public virtual IList<Class> Classes { get; protected set; }
         public virtual IList<Race> Races { get; protected set; }
@@ -86,6 +89,12 @@ namespace Eventor
         public virtual string Name { get; set; }
         public virtual Event Event { get; set; }
         public virtual IList<RaceClass> RaceClasses { get; protected set; }
+
+        public virtual void AddRaceClass(RaceClass raceClass)
+        {
+            raceClass.Class = this;
+            RaceClasses.Add(raceClass);
+        }
     }
 
     public class Race
@@ -99,6 +108,8 @@ namespace Eventor
         public virtual DateTime Date { get; set; }
         public virtual decimal? X { get; set; }
         public virtual decimal? Y { get; set; }
+        public virtual bool HasResults { get; set; }
+        public virtual bool HasStartlist { get; set; }
         public virtual IList<RaceClass> RaceClasses { get; protected set; }
     }
 

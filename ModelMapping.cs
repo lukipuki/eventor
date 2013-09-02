@@ -39,6 +39,8 @@ namespace Eventor
            Map(x => x.StartDate).Not.Nullable();
            Map(x => x.FinishDate).Not.Nullable();
            Map(x => x.EntryBreak);
+           Map(x => x.HasResults);
+           Map(x => x.HasStartlist);
            HasMany(x => x.Classes);
            HasMany(x => x.Races);
            HasMany(x => x.Documents);
@@ -81,6 +83,8 @@ namespace Eventor
            Map(x => x.Daylight);
            Map(x => x.X);
            Map(x => x.Y);
+           Map(x => x.HasResults);
+           Map(x => x.HasStartlist);
            HasMany(x => x.RaceClasses).Inverse();
            References(x => x.Event).Not.Nullable();
        }

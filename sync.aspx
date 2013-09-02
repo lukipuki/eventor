@@ -23,7 +23,7 @@ void Page_Load(object sender, EventArgs args)
             while (reader.Read())
             {
                 int eventID;
-                if (int.TryParse((string)reader["eventId"], out eventID))
+                if (int.TryParse((string)reader["EventID"], out eventID))
                     events.Add(eventID);
             }
             reader.Close();

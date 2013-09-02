@@ -3,7 +3,7 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS `event` //
 CREATE PROCEDURE `event` (IN eventID INT)
 BEGIN
-    SELECT Name, Url, StartDate, FinishDate, EntryBreak
+    SELECT Name, Url, StartDate, FinishDate, EntryBreak, HasResults, HasStartlist
     FROM Event
     WHERE EventorID = eventID;
 END//
@@ -11,7 +11,7 @@ END//
 DROP PROCEDURE IF EXISTS `races` //
 CREATE PROCEDURE `races` (IN event INT)
 BEGIN
-    SELECT Race.Id, Race.Name, Date, X, Y, Daylight, Distance
+    SELECT Race.Id, Race.Name, Date, X, Y, Daylight, Distance, Race.HasResults, Race.HasStartlist
     FROM (Race JOIN Event ON Race.EventId = Event.Id)
     WHERE Event.EventorID = event
     ORDER BY Date;
@@ -79,9 +79,10 @@ END//
 DROP PROCEDURE IF EXISTS `races_of_person` //
 CREATE PROCEDURE `races_of_person` (IN pers INT)
 BEGIN
-    SELECT Run.RaceId, Race.Name AS RaceName, Event.Name AS EventName, Event.EventorID AS EventID
+    SELECT RaceClass.RaceId, Race.Name AS RaceName, Race.Date,
+    Event.Name AS EventName, Event.EventorID AS EventID
     FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id JOIN Person ON Run.PersonId = Person.Id
     JOIN Race ON Race.Id = RaceClass.RaceId JOIN Event ON Event.Id = Race.EventId
     WHERE Person.EventorId = pers
-    ORDER BY Run.RaceId;
+    ORDER BY Race.Date DESC;
 END//
