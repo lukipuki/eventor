@@ -3,7 +3,7 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS `event` //
 CREATE PROCEDURE `event` (IN eventID INT)
 BEGIN
-    SELECT Name, Url, StartDate, FinishDate, EntryBreak, HasResults, HasStartlist
+    SELECT Name, Url, StartDate, FinishDate, EntryBreak, HasResults, HasStartlist, WordPressID
     FROM Event
     WHERE EventorID = eventID;
 END//
@@ -80,7 +80,7 @@ DROP PROCEDURE IF EXISTS `races_of_person` //
 CREATE PROCEDURE `races_of_person` (IN pers INT)
 BEGIN
     SELECT RaceClass.RaceId, Race.Name AS RaceName, Race.Date,
-    Event.Name AS EventName, Event.EventorID AS EventID
+    Event.Name AS EventName, Event.EventorID AS EventID, WordPressID
     FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id JOIN Person ON Run.PersonId = Person.Id
     JOIN Race ON Race.Id = RaceClass.RaceId JOIN Event ON Event.Id = Race.EventId
     WHERE Person.EventorId = pers

@@ -34,6 +34,7 @@ namespace Eventor
        {
            Id(x => x.Id);
            Map(x => x.EventorID).Not.Nullable();
+           Map(x => x.WordPressID).Not.Nullable();
            Map(x => x.Name);
            Map(x => x.Url);
            Map(x => x.StartDate).Not.Nullable();

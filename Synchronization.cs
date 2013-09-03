@@ -12,8 +12,13 @@ namespace Eventor
 {
     public class EventInformation
     {
-        int EventorID { get; set; }
-        int WordPressID { get; set; }
+        public int EventorID;
+        public ulong WordPressID;
+        public EventInformation(int eventorID, ulong wordPressID)
+        {
+            EventorID = eventorID;
+            WordPressID = wordPressID;
+        }
     }
 
     public static class Synchronization
@@ -83,7 +88,7 @@ namespace Eventor
             }
         }
 
-        static void SaveEvents(ISession session, XDocument eventXml)
+        static void SaveEvents(ISession session, XDocument eventXml, Dictionary<int, ulong> WordPressIDs)
         {
             Dictionary<int, Event> eventsById =
                 session.Query<Event>().ToDictionary(x => x.EventorID);
@@ -107,6 +112,7 @@ namespace Eventor
                     .Where(x => x.Element("ValidFromDate") != null)
                     .Select(x => Util.DateFromElement(x.Element("ValidFromDate")))
                     .DefaultIfEmpty(even.StartDate.AddDays(-7)).Max();
+                even.WordPressID = WordPressIDs[eventorID];
                 session.SaveOrUpdate(even);
 
                 foreach (XElement raceEl in eventEl.Elements("EventRace"))
@@ -165,7 +171,7 @@ namespace Eventor
         static void SaveClasses(ISession session, XDocument xml, int eventID)
         {
             Event even =
-                session.Query<Event>().Where(x => x.EventorID == eventID).Single();
+                session.Query<Event>().Single(x => x.EventorID == eventID);
             Dictionary<int, Race> racesById = even.Races.ToDictionary(x => x.EventorID);
             Dictionary<int, Class> classesById = even.Classes.ToDictionary(x => x.EventorID);
 
@@ -213,15 +219,7 @@ namespace Eventor
                         raceClass.Length = (int)Math.Round((double)len);
                     session.SaveOrUpdate(raceClass);
                 }
-
-                // TODO: Delete, check cascading
-                // foreach (var raceClass in raceClassById)
-                //     session.Delete(raceClass);
-
             }
-
-            // foreach (Class clas in classesById.Values)
-            //     session.Delete(clas);
         }
 
         private static void HasInformation(Event even, ISession session)
@@ -249,7 +247,7 @@ namespace Eventor
             if (xml.Element("StartList").Element("Event") == null) return;
 
             int eventID = Util.IntFromElement("EventId", xml.Element("StartList").Element("Event"));
-            Event even = session.Query<Event>().Where(x => x.EventorID == eventID).Single();
+            Event even = session.Query<Event>().Single(x => x.EventorID == eventID);
 
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
@@ -408,6 +406,8 @@ namespace Eventor
                             case "Cancelled" : run.Status = "bröt"; break;
                             case "MisPunch" : run.Status = "felst."; break;
                             case "DidNotStart" : run.Status = "ej start"; break;
+                            case "DidNotFinish" : run.Status = "återbud"; break;
+                            case "Disqualified" : run.Status = "diskv."; break;
                         }
                         run.StartTime = Util.DateFromElementNullable(resEl.Element("StartTime"));
                         if (resEl.Element("CCardId") != null)
@@ -421,23 +421,12 @@ namespace Eventor
             HasInformation(even, session);
         }
 
-        public static void EventsInformation()
-        {
-            using (var session = NHibernateHelper.OpenSession())
-                using (var transaction = session.BeginTransaction())
-                {
-                    foreach (Event even in session.Query<Event> ())
-                        HasInformation(even, session);
-                    transaction.Commit();
-                }
-        }
-
         private static int ourClubID;
-        public static void SynchronizeEvents(IEnumerable<int> eventIDs, bool minimal = false,
-                bool offline = false, bool save = false)
+        public static void SynchronizeEvents(IEnumerable<EventInformation> eventInfos,
+                bool minimal = false, bool offline = false, bool save = false)
         {
             Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
-            string events = string.Join(",", eventIDs);
+            string events = string.Join(",", eventInfos.Select(x => x.EventorID));
             ourClubID = int.Parse(ConfigurationManager.AppSettings["ClubId"]);
 
             using (var session = NHibernateHelper.OpenSession())
@@ -453,7 +442,7 @@ namespace Eventor
                         transaction.Commit();
                     }
 
-                    Club club = session.Query<Club>().Where(x => x.EventorID == ourClubID).Single();
+                    Club club = session.Query<Club>().Single(x => x.EventorID == ourClubID);
 
                     XDocument peopleXml = offline ? XDocument.Load("XML/people.xml") :
                         Util.DownloadXml(
@@ -466,7 +455,7 @@ namespace Eventor
                     }
                 }
 
-                if (eventIDs.Count() == 0) return;
+                if (eventInfos.Count() == 0) return;
 
                 XDocument eventXml = offline ? XDocument.Load("XML/events.xml") :
                     Util.DownloadXml("events?eventIds=" + events + "&includeEntryBreaks=true");
@@ -474,7 +463,9 @@ namespace Eventor
 
                 using (var transaction = session.BeginTransaction())
                 {
-                    SaveEvents(session, eventXml);
+                    Dictionary<int, ulong> WordPressIDs = eventInfos
+                        .ToDictionary(x => x.EventorID, x => x.WordPressID);
+                    SaveEvents(session, eventXml, WordPressIDs);
                     transaction.Commit();
                 }
 
@@ -488,11 +479,26 @@ namespace Eventor
                     transaction.Commit();
                 }
 
-                foreach (int eventID in eventIDs)
+                // string entriesUrl =
+                //     String.Format("entries?eventIds={0}&organisationIds={1}",
+                //                   eventID, ourClubID);
+                // XDocument entriesXml = offline ? XDocument.Load("XML/entries-" + eventID + ".xml")
+                //     : Util.DownloadXml(entriesUrl);
+                // if (!offline && save)
+                //     entriesXml.Save("XML/entriess-" + eventID + ".xml");
+
+                // using (var transaction = session.BeginTransaction())
+                // {
+                //     SaveEntries(session, entriesXml);
+                //     transaction.Commit();
+                // }
+
+                foreach (var eventInfo in eventInfos)
                 {
+                    int eventID = eventInfo.EventorID;
                     // Event doesn't exist
                     if (!session.Query<Event>().Any(x => x.EventorID == eventID)) continue;
-                    Event even = session.Query<Event> ().Where(x => x.EventorID == eventID).Single();
+                    Event even = session.Query<Event> ().Single(x => x.EventorID == eventID);
 
                     if (minimal &&
                        (DateTime.Now < even.StartDate.AddDays(-7) ||
@@ -509,21 +515,6 @@ namespace Eventor
                         SaveClasses(session, classesXml, eventID);
                         transaction.Commit();
                     }
-
-                    // string entriesUrl =
-                    //     String.Format("entries?eventIds={0}&organisationIds={1}",
-                    //                   eventID, ourClubID);
-                    // XDocument entriesXml = offline ? XDocument.Load("XML/entries-" + eventID + ".xml")
-                    //     : Util.DownloadXml(entriesUrl);
-                    // if (!offline && save)
-                    //     entriesXml.Save("XML/entriess-" + eventID + ".xml");
-
-                    // using (var transaction = session.BeginTransaction())
-                    // {
-                    //     SaveEntries(session, entriesXml);
-                    //     transaction.Commit();
-                    // }
-
 
                     if (DateTime.Now <= even.FinishDate)
                     {
@@ -565,7 +556,8 @@ namespace Eventor
         public static void Main()
         {
             // SynchronizeEvents(new int[] {5113, 7344, 4511, 4512, 4515, 6545, 7524, 7525, 4517, 4518, 3932}, true);
-            SynchronizeEvents(new int[] {4517}, offline : false, save : true, minimal : false);
+            SynchronizeEvents(new EventInformation[] {new EventInformation(5113, 19421)},
+                    offline : true, save : true, minimal : false);
         }
     }
 }

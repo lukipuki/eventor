@@ -34,7 +34,7 @@ namespace Eventor
     {
         public virtual int Id { get; protected set; }
         public virtual int EventorID { get; set; }
-        public virtual int WordPressID { get; set; }
+        public virtual ulong WordPressID { get; set; }
         public virtual string Name { get; set; }
         public virtual string Url { get; set; }
         public virtual DateTime StartDate { get; set; }

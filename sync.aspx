@@ -8,7 +8,7 @@
 <script RunAt="server">
 void Page_Load(object sender, EventArgs args)
 {
-    List<int> events = new List<int> ();
+    var events = new List<Eventor.EventInformation> ();
     using (MySqlConnection dbcon =
         new MySqlConnection(ConfigurationManager.AppSettings["ConnectionStringWP"]))
     {
@@ -24,7 +24,7 @@ void Page_Load(object sender, EventArgs args)
             {
                 int eventID;
                 if (int.TryParse((string)reader["EventID"], out eventID))
-                    events.Add(eventID);
+                    events.Add(new Eventor.EventInformation(eventID, (ulong)reader["PostID"]));
             }
             reader.Close();
         }
