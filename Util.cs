@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Security;
+using System.Linq;
 using System.Xml.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Configuration;
@@ -54,7 +55,14 @@ namespace Eventor
         {
             if (el == null)
                 return null;
-            return el.Value;
+            return el.Value.Trim();
+        }
+
+        public static Tuple<string, string> NameFrom(XElement nameEl)
+        {
+            string givenName = string.Join(" ", nameEl.Elements("Given").Select(x => x.Value.Trim()));
+            string familyName = Util.StringFrom(nameEl.Element("Family"));
+            return Tuple.Create(givenName, familyName);
         }
 
         static bool Validator (object sender, X509Certificate certificate, X509Chain chain,

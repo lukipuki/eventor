@@ -44,9 +44,9 @@ namespace Eventor
         private static void SavePerson(XElement personElement, Person person,
                 Club club, ISession session)
         {
-            person.GivenName = string.Join(" ",
-                personElement.Element("PersonName").Elements("Given").Select(x => x.Value));
-            person.FamilyName = Util.StringFrom(personElement.Element("PersonName").Element("Family"));
+            var nameTuple = Util.NameFrom(personElement.Element("PersonName"));
+            person.GivenName = nameTuple.Item1;
+            person.FamilyName = nameTuple.Item2;
             person.Club = club;
             if (personElement.Element("Address") != null)
                 person.Address =
@@ -72,8 +72,8 @@ namespace Eventor
 
             foreach (XElement personElement in peopleXml.Element("PersonList").Elements("Person"))
             {
-                XElement nameElement = personElement.Element("PersonName");
-                string name = nameElement.Element("Given").Value + " " + nameElement.Element("Family").Value;
+                var nameTuple = Util.NameFrom(personElement.Element("PersonName"));
+                string name = nameTuple.Item1 + " " + nameTuple.Item2;
                 int eventorID = Util.IntFromElement("PersonId", personElement);
 
                 Person person;
@@ -170,7 +170,8 @@ namespace Eventor
                 session.SaveOrUpdate(document);
             }
 
-            foreach (Event even in eventIDs.Select(x => eventsById[x]))
+            foreach (Event even in eventIDs
+                     .Where(x => eventsById.ContainsKey(x)).Select(x => eventsById[x]))
             {
                 List<Document> toDelete = new List<Document> ();
                 foreach (Document document in even.Documents
@@ -335,8 +336,13 @@ namespace Eventor
                 session.Query<Club>().ToDictionary(x => (int)x.EventorID);
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
-            Dictionary<string, Person> peopleByName = session.Query<Person>()
-                .Where(x => x.EventorID == null).ToDictionary(x => x.Name);
+
+            Dictionary<string, Person> peopleByName = new Dictionary<string, Person> ();
+            foreach (Person person in session.Query<Person> ().Where(x => x.EventorID == null))
+                peopleByName[person.Name] = person;
+            Club ourClub = session.Query<Club>().Single(x => x.EventorID == ourClubID);
+            foreach (Person person in ourClub.People) peopleByName[person.Name] = person;
+
             Dictionary<System.Tuple<int, int>, RaceClass> raceClassRetr = session.Query<RaceClass>()
                 .Where(x => x.Race.Event == even)
                 .ToDictionary(x => System.Tuple.Create(x.Race.EventorID, x.Class.EventorID));
@@ -369,9 +375,10 @@ namespace Eventor
 
                 if (ok) foreach (var personRes in result.Elements("PersonResult"))
                 {
-                    int? personID = Util.IntFromElementNullable("PersonId", personRes.Element("Person"));
-                    XElement nameElement = personRes.Element("Person").Element("PersonName");
-                    string name = nameElement.Element("Given").Value + " " + nameElement.Element("Family").Value;
+                    XElement personElement = personRes.Element("Person");
+                    int? personID = Util.IntFromElementNullable("PersonId", personElement);
+                    var nameTuple = Util.NameFrom(personElement.Element("PersonName"));
+                    string name = nameTuple.Item1 + " " + nameTuple.Item2;
 
                     int? clubID = Util.IntFromElementNullable("OrganisationId", personRes.Element("Organisation"));
                     Club club = null;
@@ -382,18 +389,21 @@ namespace Eventor
                     {
                         if (!peopleById.ContainsKey((int)personID))
                         {
-                            peopleById[(int)personID] = new Person { EventorID = personID };
-                            SavePerson(personRes.Element("Person"), peopleById[(int)personID],
-                                    club, session);
+                            peopleById[(int)personID] = peopleByName.ContainsKey(name) ?
+                                peopleByName[name] : new Person();
+                            peopleById[(int)personID].EventorID = personID;
+                            SavePerson(personElement, peopleById[(int)personID], club, session);
                         }
                         person = peopleById[(int)personID];
                     }
                     else
                     {
                         if (!peopleByName.ContainsKey(name))
+                        {
                             peopleByName[name] = new Person();
+                            SavePerson(personElement, peopleByName[name], club, session);
+                        }
                         person = peopleByName[name];
-                        SavePerson(personRes.Element("Person"), person, club, session);
                     }
 
                     foreach (XElement raceRes in
@@ -490,8 +500,9 @@ namespace Eventor
 
                 using (var transaction = session.BeginTransaction())
                 {
-                    Dictionary<int, ulong> WordPressIDs = eventInfos
-                        .ToDictionary(x => x.EventorID, x => x.WordPressID);
+                    Dictionary<int, ulong> WordPressIDs = new Dictionary<int, ulong> ();
+                    foreach (var x in eventInfos)
+                        WordPressIDs[x.EventorID] = x.WordPressID;
                     SaveEvents(session, eventXml, WordPressIDs);
                     transaction.Commit();
                 }
@@ -585,7 +596,8 @@ namespace Eventor
             SynchronizeEvents(
                 new EventInformation[] {
                     new EventInformation(6465, 20031),
-                    new EventInformation(5113, 19421)},
+                    new EventInformation(5113, 19421),
+                    new EventInformation(3303, 1234)},
                 offline : true, save : true, minimal : false);
         }
     }
