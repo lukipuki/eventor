@@ -9,7 +9,7 @@ namespace Eventor
            Id(x => x.Id);
            Map(x => x.EventorID).Not.Nullable();
            Map(x => x.Name);
-           HasMany(x => x.People);
+           HasMany(x => x.People).Inverse();
        }
    }
 

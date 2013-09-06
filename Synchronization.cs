@@ -143,7 +143,7 @@ namespace Eventor
             }
         }
 
-        static void SaveDocuments(ISession session, XDocument xml)
+        static void SaveDocuments(ISession session, XDocument xml, IEnumerable<int> eventIDs)
         {
             Dictionary<int, Event> eventsById =
                 session.Query<Event>().ToDictionary(x => x.EventorID);
@@ -156,7 +156,10 @@ namespace Eventor
 
                 Document document;
                 if (documentsById.ContainsKey(eventorID))
+                {
                     document = documentsById[eventorID];
+                    documentsById.Remove(eventorID);
+                }
                 else
                 {
                     document = new Document { EventorID = eventorID };
@@ -165,6 +168,16 @@ namespace Eventor
                 document.Name = docEl.Attribute("name").Value;
                 document.Url = docEl.Attribute("url").Value;
                 session.SaveOrUpdate(document);
+            }
+
+            foreach (Event even in eventIDs.Select(x => eventsById[x]))
+            {
+                List<Document> toDelete = new List<Document> ();
+                foreach (Document document in even.Documents
+                        .Where(x => documentsById.ContainsKey(x.EventorID)))
+                    toDelete.Add(document);
+                foreach (Document document in toDelete)
+                    session.Delete(document);
             }
         }
 
@@ -284,9 +297,12 @@ namespace Eventor
                             raceClassRetr[System.Tuple.Create(raceID, classID)];
 
                         Run run;
-                        var runId = System.Tuple.Create(person.Id, raceClass.Id);
-                        if (runsRetr.ContainsKey(runId))
-                            run = runsRetr[runId];
+                        var runID = System.Tuple.Create(person.Id, raceClass.Id);
+                        if (runsRetr.ContainsKey(runID))
+                        {
+                            run = runsRetr[runID];
+                            runsRetr.Remove(runID);
+                        }
                         else run = new Run
                         {
                             RaceClass = raceClass,
@@ -301,6 +317,9 @@ namespace Eventor
                     }
                 }
             }
+
+            foreach (Run run in runsRetr.Values)
+                session.Delete(run);
             HasInformation(even, session);
         }
 
@@ -386,9 +405,12 @@ namespace Eventor
                             raceClassRetr[System.Tuple.Create(raceID, classID)];
 
                         Run run;
-                        var runId = System.Tuple.Create(person.Id, raceClass.Id);
-                        if (runsRetr.ContainsKey(runId))
-                            run = runsRetr[runId];
+                        var runID = System.Tuple.Create(person.Id, raceClass.Id);
+                        if (runsRetr.ContainsKey(runID))
+                        {
+                            run = runsRetr[runID];
+                            runsRetr.Remove(runID);
+                        }
                         else run = new Run
                         {
                             RaceClass = raceClass,
@@ -416,6 +438,11 @@ namespace Eventor
                         session.SaveOrUpdate(run);
                     }
                 }
+            }
+
+            foreach (Run run in runsRetr.Values)
+            {
+                session.Delete(run);
             }
 
             HasInformation(even, session);
@@ -475,7 +502,7 @@ namespace Eventor
 
                 using (var transaction = session.BeginTransaction())
                 {
-                    SaveDocuments(session, documentXml);
+                    SaveDocuments(session, documentXml, eventInfos.Select(x => x.EventorID));
                     transaction.Commit();
                 }
 
@@ -555,9 +582,11 @@ namespace Eventor
 
         public static void Main()
         {
-            // SynchronizeEvents(new int[] {5113, 7344, 4511, 4512, 4515, 6545, 7524, 7525, 4517, 4518, 3932}, true);
-            SynchronizeEvents(new EventInformation[] {new EventInformation(5113, 19421)},
-                    offline : true, save : true, minimal : false);
+            SynchronizeEvents(
+                new EventInformation[] {
+                    new EventInformation(6465, 20031),
+                    new EventInformation(5113, 19421)},
+                offline : true, save : true, minimal : false);
         }
     }
 }

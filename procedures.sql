@@ -12,7 +12,7 @@ DROP PROCEDURE IF EXISTS `races` //
 CREATE PROCEDURE `races` (IN event INT)
 BEGIN
     SELECT Race.Id, Race.Name, Date, X, Y, Daylight, Distance, Race.HasResults, Race.HasStartlist
-    FROM (Race JOIN Event ON Race.EventId = Event.Id)
+    FROM Race JOIN Event ON Race.EventId = Event.Id
     WHERE Event.EventorID = event
     ORDER BY Date;
 END//
@@ -21,7 +21,7 @@ DROP PROCEDURE IF EXISTS `classes` //
 CREATE PROCEDURE `classes` (IN raceID INT)
 BEGIN
     SELECT Class.Name, Length, NoRunners
-    FROM (RaceClass JOIN Class ON ClassId = Class.Id)
+    FROM RaceClass JOIN Class ON ClassId = Class.Id
     WHERE RaceClass.RaceId = raceID
     ORDER BY Class.Name;
 END//
@@ -84,5 +84,15 @@ BEGIN
     FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id JOIN Person ON Run.PersonId = Person.Id
     JOIN Race ON Race.Id = RaceClass.RaceId JOIN Event ON Event.Id = Race.EventId
     WHERE Person.EventorId = pers
+    ORDER BY Race.Date DESC;
+END//
+
+DROP PROCEDURE IF EXISTS `latest_results` //
+CREATE PROCEDURE `latest_results` ()
+BEGIN
+    SELECT Race.Id, Race.Name AS RaceName, Race.Date,
+    Event.Name AS EventName, Event.EventorID AS EventID, WordPressID
+    FROM Race JOIN Event ON Event.Id = Race.EventId
+    WHERE Race.HasResults = 1
     ORDER BY Race.Date DESC;
 END//

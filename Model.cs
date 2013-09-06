@@ -15,6 +15,11 @@ namespace Eventor
             person.Club = this;
             People.Add(person);
         }
+
+        public Club()
+        {
+            People = new List<Person> ();
+        }
     }
 
     public class Person
@@ -95,6 +100,11 @@ namespace Eventor
             raceClass.Class = this;
             RaceClasses.Add(raceClass);
         }
+
+        public Class()
+        {
+            RaceClasses = new List<RaceClass> ();
+        }
     }
 
     public class Race
@@ -111,6 +121,11 @@ namespace Eventor
         public virtual bool HasResults { get; set; }
         public virtual bool HasStartlist { get; set; }
         public virtual IList<RaceClass> RaceClasses { get; protected set; }
+
+        public Race()
+        {
+            RaceClasses = new List<RaceClass> ();
+        }
     }
 
     public class RaceClass
@@ -122,6 +137,11 @@ namespace Eventor
         public virtual int? Length { get; set; }
         public virtual int? NoRunners { get; set; }
         public virtual IList<Run> Runs { get; protected set; }
+
+        public RaceClass()
+        {
+            Runs = new List<Run> ();
+        }
     }
 
     public class Run
