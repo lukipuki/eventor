@@ -51,7 +51,7 @@ END//
 DROP PROCEDURE IF EXISTS `startlist` //
 CREATE PROCEDURE `startlist` (IN raceID INT)
 BEGIN
-    SELECT Class.Name AS Class, CONCAT(Person.GivenName, ' ', Person.FamilyName) AS Name,
+    SELECT Class.Name AS Class, CONCAT(GivenName, ' ', FamilyName) AS Name,
     DATE_FORMAT(StartTime, "%H:%i:%S") AS StartTime, SI
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId JOIN Club ON Person.ClubId = Club.Id
@@ -63,7 +63,7 @@ DROP PROCEDURE IF EXISTS `documents` //
 CREATE PROCEDURE `documents` (IN event INT)
 BEGIN
     SELECT Document.Name, Document.Url
-    FROM (Document JOIN Event ON Document.EventId = Event.Id)
+    FROM Document JOIN Event ON Document.EventId = Event.Id
     WHERE Event.EventorId = event;
 END//
 
@@ -87,12 +87,17 @@ BEGIN
     ORDER BY Race.Date DESC;
 END//
 
-DROP PROCEDURE IF EXISTS `latest_results` //
-CREATE PROCEDURE `latest_results` ()
-BEGIN
+CREATE OR REPLACE VIEW `latest_results` AS
     SELECT Race.Id, Race.Name AS RaceName, Race.Date,
     Event.Name AS EventName, Event.EventorID AS EventID, WordPressID
     FROM Race JOIN Event ON Event.Id = Race.EventId
     WHERE Race.HasResults = 1
-    ORDER BY Race.Date DESC;
-END//
+    ORDER BY Race.Date DESC//
+
+-- Useful for debugging
+CREATE OR REPLACE VIEW `runs` AS
+    SELECT Person.GivenName, Person.FamilyName, Run.Status, Run.StartTime, Run.Time, Run.TimeDiff,
+    Run.Position, Run.SI, Class.Name AS ClassName, Club.Name AS ClubName, Club.EventorID AS ClubEvId
+    FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id JOIN Person ON Run.PersonId = Person.Id
+    JOIN Race ON Race.Id = RaceClass.RaceId JOIN Event ON Event.Id = Race.EventId
+    JOIN Class ON Class.Id = RaceClass.ClassId JOIN Club ON Club.Id = Person.ClubId;
