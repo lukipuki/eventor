@@ -13,8 +13,8 @@ namespace Eventor
     public class EventInformation
     {
         public int EventorID;
-        public ulong WordPressID;
-        public EventInformation(int eventorID, ulong wordPressID)
+        public ulong? WordPressID;
+        public EventInformation(int eventorID, ulong? wordPressID)
         {
             EventorID = eventorID;
             WordPressID = wordPressID;
@@ -112,7 +112,9 @@ namespace Eventor
                     .Where(x => x.Element("ValidFromDate") != null)
                     .Select(x => Util.DateFromElement(x.Element("ValidFromDate")))
                     .DefaultIfEmpty(even.StartDate.AddDays(-7)).Max();
-                even.WordPressID = WordPressIDs[eventorID];
+                if (WordPressIDs.ContainsKey(eventorID))
+                    even.WordPressID = WordPressIDs[eventorID];
+                even.Form = eventEl.Attribute("eventForm").Value;
                 session.SaveOrUpdate(even);
 
                 foreach (XElement raceEl in eventEl.Elements("EventRace"))
@@ -262,6 +264,7 @@ namespace Eventor
 
             int eventID = Util.IntFromElement("EventId", xml.Element("StartList").Element("Event"));
             Event even = session.Query<Event>().Single(x => x.EventorID == eventID);
+            if (!even.Form.StartsWith("Ind")) return; // TODO: support for other forms
 
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
@@ -271,13 +274,9 @@ namespace Eventor
             Dictionary<System.Tuple<int, int>, Run> runsRetr =
                 session.Query<Run>().Where(x => x.RaceClass.Race.Event == even)
                 .ToDictionary(x => System.Tuple.Create(x.Person.Id, x.RaceClass.Id));
-            bool singleDay =
-                xml.Element("StartList").Element("Event").Attribute("eventForm").Value == "IndSingleDay";
 
-            int raceID = 0;
-            if (singleDay)
-                raceID = even.Races[0].EventorID;
-
+            bool singleDay = even.Form.EndsWith("SingleDay");
+            int raceID = singleDay ? even.Races[0].EventorID : 0;
             foreach (var startlist in xml.Element("StartList").Elements("ClassStart"))
             {
                 int classID = Util.IntFromElement("EventClassId", startlist.Element("EventClass"));
@@ -326,12 +325,10 @@ namespace Eventor
 
         static void SaveResults(ISession session, XDocument xml)
         {
-            //TODO support not only individual competitions
-            if (!xml.Element("ResultList").Element("Event").Attribute("eventForm").Value.StartsWith("Ind"))
-                return;
-
             int eventID = Util.IntFromElement("EventId", xml.Element("ResultList").Element("Event"));
             Event even = session.Query<Event>().Where(x => x.EventorID == eventID).First();
+            if (!even.Form.StartsWith("Ind")) return; // TODO: support for other forms
+
             Dictionary<int, Club> clubsById =
                 session.Query<Club>().ToDictionary(x => (int)x.EventorID);
             Dictionary<int, Person> peopleById = session.Query<Person>()
@@ -349,10 +346,8 @@ namespace Eventor
             Dictionary<System.Tuple<int, int>, Run> runsRetr = session.Query<Run>()
                 .Where(x => x.RaceClass.Race.Event == even)
                 .ToDictionary(x => System.Tuple.Create(x.Person.Id, x.RaceClass.Id));
-            bool singleDay =
-                xml.Element("ResultList").Element("Event").Attribute("eventForm").Value
-                == "IndSingleDay";
 
+            bool singleDay = even.Form.EndsWith("SingleDay");
             foreach (var result in xml.Element("ResultList").Elements("ClassResult"))
             {
                 int classID = Util.IntFromElement("EventClassId", result.Element("EventClass"));
@@ -380,7 +375,8 @@ namespace Eventor
                     var nameTuple = Util.NameFrom(personElement.Element("PersonName"));
                     string name = nameTuple.Item1 + " " + nameTuple.Item2;
 
-                    int? clubID = Util.IntFromElementNullable("OrganisationId", personRes.Element("Organisation"));
+                    int? clubID = Util.IntFromElementNullable("OrganisationId",
+                            personRes.Element("Organisation"));
                     Club club = null;
                     if (clubID != null && clubsById.ContainsKey((int)clubID))
                         club = clubsById[(int)clubID];
@@ -501,8 +497,8 @@ namespace Eventor
                 using (var transaction = session.BeginTransaction())
                 {
                     Dictionary<int, ulong> WordPressIDs = new Dictionary<int, ulong> ();
-                    foreach (var x in eventInfos)
-                        WordPressIDs[x.EventorID] = x.WordPressID;
+                    foreach (var x in eventInfos.Where(y => y.WordPressID != null))
+                        WordPressIDs[x.EventorID] = (ulong)x.WordPressID;
                     SaveEvents(session, eventXml, WordPressIDs);
                     transaction.Commit();
                 }
@@ -597,7 +593,7 @@ namespace Eventor
                 new EventInformation[] {
                     new EventInformation(6465, 20031),
                     new EventInformation(5113, 19421),
-                    new EventInformation(3303, 1234)},
+                    new EventInformation(3303, null)},
                 offline : true, save : true, minimal : false);
         }
     }

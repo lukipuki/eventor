@@ -42,6 +42,7 @@ namespace Eventor
            Map(x => x.EntryBreak);
            Map(x => x.HasResults);
            Map(x => x.HasStartlist);
+           Map(x => x.Form);
            HasMany(x => x.Classes);
            HasMany(x => x.Races);
            HasMany(x => x.Documents);

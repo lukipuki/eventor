@@ -47,6 +47,7 @@ namespace Eventor
         public virtual DateTime? EntryBreak { get; set; }
         public virtual bool HasResults { get; set; }
         public virtual bool HasStartlist { get; set; }
+        public virtual string Form { get; set; }
 
         public virtual IList<Class> Classes { get; protected set; }
         public virtual IList<Race> Races { get; protected set; }
