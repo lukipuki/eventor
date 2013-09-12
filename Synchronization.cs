@@ -534,11 +534,6 @@ namespace Eventor
                     if (!session.Query<Event>().Any(x => x.EventorID == eventID)) continue;
                     Event even = session.Query<Event> ().Single(x => x.EventorID == eventID);
 
-                    if (minimal &&
-                       (DateTime.Now < even.StartDate.AddDays(-7) ||
-                        DateTime.Now > even.FinishDate.AddDays(4)))
-                        continue;
-
                     XDocument classesXml = offline ? XDocument.Load("XML/classes-" + eventID + ".xml")
                         : Util.DownloadXml("eventclasses?eventId=" + eventID);
                     if (!offline && save)

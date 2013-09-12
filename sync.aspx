@@ -8,12 +8,16 @@
 <script RunAt="server">
 void Page_Load(object sender, EventArgs args)
 {
+    int begOffset = -7, endOffset = 20;
+    int.TryParse(Request.QueryString["beginning"], out begOffset);
+    int.TryParse(Request.QueryString["end"], out endOffset);
+
     var events = new List<Eventor.EventInformation> ();
     using (MySqlConnection dbcon =
         new MySqlConnection(ConfigurationManager.AppSettings["ConnectionStringWP"]))
     {
         dbcon.Open();
-        DateTime beginning = DateTime.Today.AddDays(-7), end = DateTime.Today.AddDays(20);
+        DateTime beginning = DateTime.Today.AddDays(begOffset), end = DateTime.Today.AddDays(endOffset);
         using (IDbCommand dbcmd = dbcon.CreateCommand())
         {
             dbcmd.CommandText = string.Format("CALL events_between('{0}', '{1}');",
@@ -30,6 +34,6 @@ void Page_Load(object sender, EventArgs args)
         }
     }
 
-    Eventor.Synchronization.SynchronizeEvents(events, Request.QueryString["minimal"] != null);
+    Eventor.Synchronization.SynchronizeEvents(events, Request.QueryString["minimal"] == "true");
 }
 </script>
