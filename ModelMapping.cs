@@ -25,6 +25,7 @@ namespace Eventor
            Map(x => x.Phone);
            Map(x => x.Email);
            References(x => x.Club);
+           HasMany(x => x.Runs).Inverse();
        }
    }
 

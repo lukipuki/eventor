@@ -33,6 +33,17 @@ namespace Eventor
         public virtual string Address { get; set; }
         public virtual string Phone { get; set; }
         public virtual string Email { get; set; }
+
+        public virtual IList<Run> Runs { get; set; }
+        public Person()
+        {
+            Runs = new List<Run> ();
+        }
+
+        public virtual void AddRun(Run run)
+        {
+            Runs.Add(run);
+        }
     }
 
     public class Event
