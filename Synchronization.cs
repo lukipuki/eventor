@@ -50,7 +50,8 @@ namespace Eventor
             person.Club = club;
             if (personElement.Element("Address") != null)
                 person.Address =
-                string.Join(", ", personElement.Element("Address").Attributes().Select(x => x.Value));
+                string.Join(", ", personElement.Element("Address").Attributes()
+                        .Select(x => x.Name == "careOf" ? "c/o " + x.Value : x.Value));
 
             XElement telEl = personElement.Element("Tele");
             if (telEl != null)
@@ -431,10 +432,10 @@ namespace Eventor
                                         run.TimeDiff = Util.TimeFromElement("TimeDiff", resEl);
                                         run.Position = Util.IntFromElement("ResultPosition", resEl);
                             break;
-                            case "Cancelled" : run.Status = "bröt"; break;
+                            case "Cancelled" : run.Status = "br&ouml;t"; break;
                             case "MisPunch" : run.Status = "felst."; break;
                             case "DidNotStart" : run.Status = "ej start"; break;
-                            case "DidNotFinish" : run.Status = "återbud"; break;
+                            case "DidNotFinish" : run.Status = "&aring;terbud"; break;
                             case "Disqualified" : run.Status = "diskv."; break;
                         }
                         run.StartTime = Util.DateFromElementNullable(resEl.Element("StartTime"));
@@ -534,48 +535,66 @@ namespace Eventor
                     if (!session.Query<Event>().Any(x => x.EventorID == eventID)) continue;
                     Event even = session.Query<Event> ().Single(x => x.EventorID == eventID);
 
-                    XDocument classesXml = offline ? XDocument.Load("XML/classes-" + eventID + ".xml")
-                        : Util.DownloadXml("eventclasses?eventId=" + eventID);
-                    if (!offline && save)
-                        classesXml.Save("XML/classes-" + eventID + ".xml");
+                    try {
+                        XDocument classesXml = offline ? XDocument.Load("XML/classes-" + eventID + ".xml")
+                            : Util.DownloadXml("eventclasses?eventId=" + eventID);
+                        if (!offline && save)
+                            classesXml.Save("XML/classes-" + eventID + ".xml");
 
-                    using (var transaction = session.BeginTransaction())
+                        using (var transaction = session.BeginTransaction())
+                        {
+                            SaveClasses(session, classesXml, eventID);
+                            transaction.Commit();
+                        }
+                    }
+                    catch (Exception e)
                     {
-                        SaveClasses(session, classesXml, eventID);
-                        transaction.Commit();
+                        continue;
                     }
 
                     if (DateTime.Now <= even.FinishDate)
                     {
-                        string startlistUrl =
-                            String.Format("starts/organisation?eventId={0}&organisationIds={1}",
-                                          eventID, ourClubID);
-                        XDocument startlistXml = offline ? XDocument.Load("XML/startlists-" + eventID + ".xml")
-                            : Util.DownloadXml(startlistUrl);
-                        if (!offline && save)
-                            startlistXml.Save("XML/startlists-" + eventID + ".xml");
+                        try {
+                            string startlistUrl =
+                                String.Format("starts/organisation?eventId={0}&organisationIds={1}",
+                                              eventID, ourClubID);
+                            XDocument startlistXml = offline ? XDocument.Load("XML/startlists-" + eventID + ".xml")
+                                : Util.DownloadXml(startlistUrl);
+                            if (!offline && save)
+                                startlistXml.Save("XML/startlists-" + eventID + ".xml");
 
-                        using (var transaction = session.BeginTransaction())
+                            using (var transaction = session.BeginTransaction())
+                            {
+                                SaveStartlist(session, startlistXml);
+                                transaction.Commit();
+                            }
+                        }
+                        catch (Exception e)
                         {
-                            SaveStartlist(session, startlistXml);
-                            transaction.Commit();
+                            // Failed to load startlist for event event.Name
                         }
                     }
 
                     if (DateTime.Now >= even.StartDate)
                     {
-                        string resultUrl =
-                            String.Format("results/organisation?eventId={0}&organisationIds={1}&top=1",
-                                          eventID, ourClubID);
-                        XDocument resultsXml = offline ? XDocument.Load("XML/results-" + eventID + ".xml")
-                            : Util.DownloadXml(resultUrl);
-                        if (!offline && save)
-                            resultsXml.Save("XML/results-" + eventID + ".xml");
+                        try {
+                            string resultUrl =
+                                String.Format("results/organisation?eventId={0}&organisationIds={1}&top=1",
+                                              eventID, ourClubID);
+                            XDocument resultsXml = offline ? XDocument.Load("XML/results-" + eventID + ".xml")
+                                : Util.DownloadXml(resultUrl);
+                            if (!offline && save)
+                                resultsXml.Save("XML/results-" + eventID + ".xml");
 
-                        using (var transaction = session.BeginTransaction())
+                            using (var transaction = session.BeginTransaction())
+                            {
+                                SaveResults(session, resultsXml);
+                                transaction.Commit();
+                            }
+                        }
+                        catch (Exception e)
                         {
-                            SaveResults(session, resultsXml);
-                            transaction.Commit();
+                            // Failed to load results for event even.Name
                         }
                     }
                 }
@@ -588,8 +607,9 @@ namespace Eventor
                 new EventInformation[] {
                     new EventInformation(6465, 20031),
                     new EventInformation(5113, 19421),
-                    new EventInformation(3303, null)},
-                offline : true, save : true, minimal : false);
+                    new EventInformation(3303, null),
+                    new EventInformation(7881, null)},
+                offline : false, save : true, minimal : false);
         }
     }
 }
