@@ -8,6 +8,10 @@ namespace Eventor
 {
     public class NHibernateHelper
     {
+        /**
+         * Configuration of NHibernate
+         */
+
         private static ISessionFactory _sessionFactory;
 
         private static ISessionFactory SessionFactory
@@ -35,6 +39,8 @@ namespace Eventor
                 .ExposeConfiguration(cfg => new SchemaExport(cfg).Create(false, false))
                 .BuildSessionFactory();
         }
+
+        // TODO: Create tables
 
         public static ISession OpenSession()
         {

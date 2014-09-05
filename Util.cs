@@ -8,13 +8,15 @@ using System.Configuration;
 
 namespace Eventor
 {
+    /**
+     * Various functions helping parsing XML.
+     */
     public static class Util
     {
         public static int? IntFromElementNullable(string name, XElement el)
         {
-            if (el == null || el.Element(name) == null)
-                return null;
-            return int.Parse(el.Element(name).Value);
+            if (el == null || el.Element(name) == null) return null;
+            return IntFromElement(name, el);
         }
 
         public static int IntFromElement(string name, XElement el)
@@ -24,7 +26,7 @@ namespace Eventor
 
         public static double? DoubleFromElement(string name, XElement el)
         {
-            if (el.Element(name) == null)
+            if (el == null || el.Element(name) == null)
                 return null;
             double res = 0;
             double.TryParse(el.Element(name).Value.Split()[0], out res);
@@ -40,7 +42,7 @@ namespace Eventor
         {
             if (el == null)
                 return null;
-            return DateTime.Parse(el.Element("Date").Value + " " + el.Element("Clock").Value);
+            return DateFromElement(el);
         }
 
         public static TimeSpan TimeFromElement(string name, XElement el)
