@@ -76,33 +76,12 @@ namespace Eventor
                 foreach (var eventInfo in eventInfos)
                 {
                     int eventID = eventInfo.EventorID;
-                    if (!session.Query<Event>().Any(x => x.EventorID == eventID)) continue;
-                    Event even = session.Query<Event> ().Single(x => x.EventorID == eventID);
-                    // Optimize for new ones only
-                    // if (DateTime.Now <= even.StartDate)
-                        events.Add(even);
-                }
-
-                string entriesUrl =
-                    String.Format("entries?eventIds={0}&organisationIds={1}",
-                                  string.Join(",", events.Select(x => x.EventorID)), ourClubID);
-                XDocument entriesXml = offline ? XDocument.Load("XML/entries.xml")
-                    : Util.DownloadXml(entriesUrl);
-                if (!offline && save)
-                    entriesXml.Save("XML/entries.xml");
-
-                using (var transaction = session.BeginTransaction())
-                {
-                    SaveEntries(session, entriesXml, events);
-                    transaction.Commit();
-                }
-
-                foreach (var eventInfo in eventInfos)
-                {
-                    int eventID = eventInfo.EventorID;
                     // Event doesn't exist
                     if (!session.Query<Event>().Any(x => x.EventorID == eventID)) continue;
                     Event even = session.Query<Event> ().Single(x => x.EventorID == eventID);
+                    // TODO: Use even.EntryBreak instead
+                    if (DateTime.Now <= even.FinishDate)
+                        events.Add(even);
 
                     try {
                         XDocument classesXml = offline ? XDocument.Load("XML/classes-" + eventID + ".xml")
@@ -169,6 +148,26 @@ namespace Eventor
                         }
                     }
                 }
+
+                try {
+                    string entriesUrl =
+                        String.Format("entries?eventIds={0}&organisationIds={1}",
+                                      string.Join(",", events.Select(x => x.EventorID)), ourClubID);
+                    XDocument entriesXml = offline ? XDocument.Load("XML/entries.xml")
+                        : Util.DownloadXml(entriesUrl);
+                    if (!offline && save)
+                        entriesXml.Save("XML/entries.xml");
+
+                    using (var transaction = session.BeginTransaction())
+                    {
+                        SaveEntries(session, entriesXml, events);
+                        transaction.Commit();
+                    }
+                }
+                catch (Exception e)
+                {
+                    // Failed to load entries
+                }
             }
         }
 
@@ -177,11 +176,13 @@ namespace Eventor
             SynchronizeEvents(
                 new EventInformation[] {
                     // new EventInformation(6465, 20031),
-                    new EventInformation(5113, 19421)
+                    new EventInformation(5113, 19421),
                     // new EventInformation(3303, null),
                     // new EventInformation(7881, null)
+                    new EventInformation(7496, null),
+                    new EventInformation(7497, null)
                     },
-                offline : true, save : false, minimal : false);
+                offline : true, save : true, minimal : true);
         }
     }
 }

@@ -55,7 +55,8 @@ BEGIN
     DATE_FORMAT(StartTime, "%H:%i:%S") AS StartTime, SI
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId JOIN Club ON Person.ClubId = Club.Id
-    WHERE RaceClass.RaceId = raceID AND Club.EventorId = 636 AND StartTime IS NOT NULL
+    WHERE RaceClass.RaceId = raceID AND Club.EventorId = 636
+-- AND StartTime IS NOT NULL
     ORDER BY StartTime;
 END//
 
@@ -97,7 +98,8 @@ CREATE OR REPLACE VIEW `latest_results` AS
 -- Useful for debugging
 CREATE OR REPLACE VIEW `runs` AS
     SELECT Person.GivenName, Person.FamilyName, Run.Status, Run.StartTime, Run.Time, Run.TimeDiff,
-    Run.Position, Run.SI, Class.Name AS ClassName, Club.Name AS ClubName, Club.EventorID AS ClubEvId
+    Run.Position, Run.SI, Class.Name AS ClassName, Club.Name AS ClubName,
+    Race.Id AS RaceId
     FROM Run JOIN RaceClass ON RaceClassId = RaceClass.Id JOIN Person ON Run.PersonId = Person.Id
     JOIN Race ON Race.Id = RaceClass.RaceId JOIN Event ON Event.Id = Race.EventId
     JOIN Class ON Class.Id = RaceClass.ClassId JOIN Club ON Club.Id = Person.ClubId;

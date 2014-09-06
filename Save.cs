@@ -21,11 +21,14 @@ namespace Eventor
         }
     }
 
+    /**
+     * Contains the SaveXXXX part of Synchronization
+     */
     public static partial class Synchronization
     {
-        /** Contains the SaveXXXX part of Synchronization
+        /**
+         * Save all the clubs
          */
-
         private static void SaveClubs(ISession session, XDocument clubsXml)
         {
             Dictionary<int, Club> clubsById =
@@ -44,6 +47,9 @@ namespace Eventor
             }
         }
 
+        /**
+         * Save one person
+         */
         private static void SavePerson(XElement personElement, Person person,
                 Club club, ISession session)
         {
@@ -67,6 +73,9 @@ namespace Eventor
             session.SaveOrUpdate(person);
         }
 
+        /**
+         * Save people from some club, together with all of their information
+         */
         private static void SavePeople(Club club, ISession session, XDocument peopleXml)
         {
             Dictionary<int, Person> peopleById = club.People.Where(x => x.EventorID != null)
@@ -92,6 +101,9 @@ namespace Eventor
             }
         }
 
+        /**
+         * Save event information
+         */
         static void SaveEvents(ISession session, XDocument eventXml, Dictionary<int, ulong> WordPressIDs)
         {
             Dictionary<int, Event> eventsById =
@@ -149,6 +161,9 @@ namespace Eventor
             }
         }
 
+        /**
+         * Save documents for all given events
+         */
         static void SaveDocuments(ISession session, XDocument xml, IEnumerable<int> eventIDs)
         {
             Dictionary<int, Event> eventsById =
@@ -277,7 +292,7 @@ namespace Eventor
             List<RaceClass> raceClasses = new List<RaceClass> ();
             List<Run> runs = new List<Run> ();
             Dictionary<int, List<int>> raceIds = new Dictionary<int, List<int>> ();
-            foreach (Event even in events)
+            foreach (Event even in events.Where(x => x.Form.StartsWith("Ind")))
             {
                 raceClasses.AddRange(session.Query<RaceClass>().Where(x => x.Race.Event == even));
                 runs.AddRange(session.Query<Run>().Where(x => x.RaceClass.Race.Event == even));
@@ -313,9 +328,7 @@ namespace Eventor
                         Person = person
                     };
 
-                    Console.WriteLine(person.Name + " " + raceID);
                     run.SI = Util.IntFromElementNullable("CCardId", entry.Element("Competitor").Element("CCard"));
-                    Console.WriteLine(person.Name + " " + raceID);
                     session.SaveOrUpdate(run);
                 }
             }
@@ -426,6 +439,7 @@ namespace Eventor
                     }
                 }
 
+                // Sometimes classes with noone from our club show up, skip those
                 bool ok = result.Elements("PersonResult").Any(
                     x => Util.IntFromElementNullable("OrganisationId", x.Element("Organisation"))
                          == ourClubID
