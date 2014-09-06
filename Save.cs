@@ -60,6 +60,7 @@ namespace Eventor
             if (personElement.Element("Address") != null)
                 person.Address =
                 string.Join(", ", personElement.Element("Address").Attributes()
+                        .Where(x => x.Value.Trim() != "")
                         .Select(x => x.Name == "careOf" ? "c/o " + x.Value : x.Value));
 
             XElement telEl = personElement.Element("Tele");

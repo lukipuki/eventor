@@ -22,53 +22,75 @@ namespace Eventor
 
             using (var session = NHibernateHelper.OpenSession())
             {
+                // Only download clubs and people if full is true, since they don't change often
                 if (full)
                 {
-                    XDocument clubsXml = offline ? XDocument.Load("XML/clubs.xml") :
-                        Util.DownloadXml("organisations");
-                    if (!offline && save) clubsXml.Save("XML/clubs.xml");
-                    using (var transaction = session.BeginTransaction())
-                    {
-                        SaveClubs(session, clubsXml);
-                        transaction.Commit();
+                    try {
+                        XDocument clubsXml = offline ? XDocument.Load("XML/clubs.xml") :
+                            Util.DownloadXml("organisations");
+                        if (!offline && save) clubsXml.Save("XML/clubs.xml");
+                        using (var transaction = session.BeginTransaction())
+                        {
+                            SaveClubs(session, clubsXml);
+                            transaction.Commit();
+                        }
+
+                        Club club = session.Query<Club>().Single(x => x.EventorID == ourClubID);
+
+                        XDocument peopleXml = offline ? XDocument.Load("XML/people.xml") :
+                            Util.DownloadXml(
+                                string.Format("persons/organisations/{0}?includeContactDetails=true", ourClubID));
+                        if (!offline && save) peopleXml.Save("XML/people.xml");
+                        using (var transaction = session.BeginTransaction())
+                        {
+                            SavePeople(club, session, peopleXml);
+                            transaction.Commit();
+                        }
+                        // Successfully saved clubs and people
                     }
-
-                    Club club = session.Query<Club>().Single(x => x.EventorID == ourClubID);
-
-                    XDocument peopleXml = offline ? XDocument.Load("XML/people.xml") :
-                        Util.DownloadXml(
-                            string.Format("persons/organisations/{0}?includeContactDetails=true", ourClubID));
-                    if (!offline && save) peopleXml.Save("XML/people.xml");
-                    using (var transaction = session.BeginTransaction())
+                    catch (Exception e)
                     {
-                        SavePeople(club, session, peopleXml);
-                        transaction.Commit();
+                        // Failed to save clubs and people
                     }
                 }
 
+                // No events to download, time to go home
                 if (eventInfos.Count() == 0) return;
 
-                XDocument eventXml = offline ? XDocument.Load("XML/events.xml") :
-                    Util.DownloadXml("events?eventIds=" + eventstring + "&includeEntryBreaks=true");
-                if (!offline && save) eventXml.Save("XML/events.xml");
+                try {
+                    XDocument eventXml = offline ? XDocument.Load("XML/events.xml") :
+                        Util.DownloadXml("events?eventIds=" + eventstring + "&includeEntryBreaks=true");
+                    if (!offline && save) eventXml.Save("XML/events.xml");
 
-                using (var transaction = session.BeginTransaction())
+                    using (var transaction = session.BeginTransaction())
+                    {
+                        Dictionary<int, ulong> WordPressIDs = new Dictionary<int, ulong> ();
+                        foreach (var x in eventInfos.Where(y => y.WordPressID != null))
+                            WordPressIDs[x.EventorID] = (ulong)x.WordPressID;
+                        SaveEvents(session, eventXml, WordPressIDs);
+                        transaction.Commit();
+                    }
+                    // Successfully saved events
+                }
+                catch (Exception e)
                 {
-                    Dictionary<int, ulong> WordPressIDs = new Dictionary<int, ulong> ();
-                    foreach (var x in eventInfos.Where(y => y.WordPressID != null))
-                        WordPressIDs[x.EventorID] = (ulong)x.WordPressID;
-                    SaveEvents(session, eventXml, WordPressIDs);
-                    transaction.Commit();
+                    // Failed to save events
                 }
 
-                XDocument documentXml = offline ? XDocument.Load("XML/documents.xml") :
-                    Util.DownloadXml("events/documents?eventIds=" + eventstring);
-                if (!offline && save) documentXml.Save("XML/documents.xml");
+                try {
+                    XDocument documentXml = offline ? XDocument.Load("XML/documents.xml") :
+                        Util.DownloadXml("events/documents?eventIds=" + eventstring);
+                    if (!offline && save) documentXml.Save("XML/documents.xml");
 
-                using (var transaction = session.BeginTransaction())
+                    using (var transaction = session.BeginTransaction())
+                    {
+                        SaveDocuments(session, documentXml, eventInfos.Select(x => x.EventorID));
+                        transaction.Commit();
+                    }
+                }
+                catch (Exception e)
                 {
-                    SaveDocuments(session, documentXml, eventInfos.Select(x => x.EventorID));
-                    transaction.Commit();
+                    // Failed to load documents
                 }
 
                 List<Event> events = new List<Event> ();
@@ -76,7 +98,12 @@ namespace Eventor
                 {
                     int eventID = eventInfo.EventorID;
                     // Event doesn't exist
-                    if (!session.Query<Event>().Any(x => x.EventorID == eventID)) continue;
+                    if (!session.Query<Event>().Any(x => x.EventorID == eventID))
+                    {
+                        // Event number eventID doesn't exist
+                        continue;
+                    }
+
                     Event even = session.Query<Event> ().Single(x => x.EventorID == eventID);
                     // TODO: Use even.EntryBreak instead
                     if (DateTime.Now <= even.FinishDate)
@@ -96,6 +123,8 @@ namespace Eventor
                     }
                     catch (Exception e)
                     {
+                        // Failed to load classes for event.EventName, not trying to load startlists
+                        // or results
                         continue;
                     }
 
@@ -172,16 +201,15 @@ namespace Eventor
 
         public static void Main()
         {
+            // Testing the code
             SynchronizeEvents(
                 new EventInformation[] {
-                    // new EventInformation(6465, 20031),
                     new EventInformation(5113, 19421),
                     // new EventInformation(3303, null),
-                    // new EventInformation(7881, null)
                     new EventInformation(7496, null),
                     new EventInformation(7497, null)
                     },
-                    offline : true, full : false, save : true);
+                    offline : true, full : true, save : true);
         }
     }
 }
