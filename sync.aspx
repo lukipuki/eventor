@@ -34,6 +34,6 @@ void Page_Load(object sender, EventArgs args)
         }
     }
 
-    Eventor.Synchronization.SynchronizeEvents(events, Request.QueryString["minimal"] == "true");
+    Eventor.Synchronization.SynchronizeEvents(events, Request.QueryString["full"] == "true");
 }
 </script>

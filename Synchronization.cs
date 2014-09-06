@@ -14,8 +14,7 @@ namespace Eventor
     {
         private static int ourClubID;
         public static void SynchronizeEvents(IEnumerable<EventInformation> eventInfos,
-                bool minimal = false, bool offline = false, bool save = false)
-            // TODO: Change minimal default to true
+                bool full = false, bool offline = false, bool save = false)
         {
             Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
             string eventstring = string.Join(",", eventInfos.Select(x => x.EventorID));
@@ -23,7 +22,7 @@ namespace Eventor
 
             using (var session = NHibernateHelper.OpenSession())
             {
-                if (!minimal)
+                if (full)
                 {
                     XDocument clubsXml = offline ? XDocument.Load("XML/clubs.xml") :
                         Util.DownloadXml("organisations");
@@ -182,7 +181,7 @@ namespace Eventor
                     new EventInformation(7496, null),
                     new EventInformation(7497, null)
                     },
-                offline : true, save : true, minimal : true);
+                    offline : true, full : false, save : true);
         }
     }
 }
