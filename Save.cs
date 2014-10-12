@@ -286,7 +286,6 @@ namespace Eventor
 
         static void SaveEntries(ISession session, XDocument xml, List<Event> events)
         {
-            Dictionary<int, Event> eventsById = events.ToDictionary(x => x.EventorID);
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
 
@@ -333,6 +332,12 @@ namespace Eventor
                     session.SaveOrUpdate(run);
                 }
             }
+
+            foreach (Run run in runsRetr.Values)
+                session.Delete(run);
+
+            foreach (Event even in events.Where(x => x.Form.StartsWith("Ind")))
+                HasInformation(even, session);
         }
 
         static void SaveStartlist(ISession session, XDocument xml)

@@ -169,6 +169,7 @@ namespace Eventor
         public virtual string Status { get; set; }
     }
 
+    // TotalResult not given by Eventor, so this class is not used yet
     public class TotalResult
     {
         public virtual int Id { get; protected set; }
