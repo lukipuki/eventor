@@ -56,8 +56,7 @@ BEGIN
     FROM Person JOIN Run ON PersonId = Person.Id JOIN RaceClass ON RaceClassId = RaceClass.Id
     JOIN Class ON Class.Id = ClassId JOIN Club ON Person.ClubId = Club.Id
     WHERE RaceClass.RaceId = raceID AND Club.EventorId = 636
--- AND StartTime IS NOT NULL
-    ORDER BY StartTime;
+    ORDER BY StartTime, Class;
 END//
 
 DROP PROCEDURE IF EXISTS `documents` //
