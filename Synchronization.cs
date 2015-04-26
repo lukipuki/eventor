@@ -204,12 +204,13 @@ namespace Eventor
             // Testing the code
             SynchronizeEvents(
                 new EventInformation[] {
-                    new EventInformation(5113, 19421),
+                    // new EventInformation(5113, 19421),
                     // new EventInformation(3303, null),
-                    new EventInformation(7496, null),
-                    new EventInformation(7497, null)
+                    // new EventInformation(7496, null),
+                    // new EventInformation(7497, null),
+                    new EventInformation(10612, null)
                     },
-                    offline : true, full : true, save : true);
+                    offline : false, full : true, save : true);
         }
     }
 }

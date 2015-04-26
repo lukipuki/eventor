@@ -471,9 +471,9 @@ namespace Eventor
                             peopleById[(int)personID] = peopleByName.ContainsKey(name) ?
                                 peopleByName[name] : new Person();
                             peopleById[(int)personID].EventorID = personID;
-                            SavePerson(personElement, peopleById[(int)personID], club, session);
                         }
                         person = peopleById[(int)personID];
+                        SavePerson(personElement, peopleById[(int)personID], club, session);
                     }
                     else
                     {
