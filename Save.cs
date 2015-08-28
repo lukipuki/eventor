@@ -79,7 +79,8 @@ namespace Eventor
          */
         private static void SavePeople(Club club, ISession session, XDocument peopleXml)
         {
-            Dictionary<int, Person> peopleById = club.People.Where(x => x.EventorID != null)
+            Dictionary<int, Person> peopleById = session.Query<Person>()
+                .Where(x => x.EventorID != null)
                 .ToDictionary(x => (int)x.EventorID);
             Dictionary<string, Person> peopleByName = club.People.Where(x => x.EventorID == null)
                 .ToDictionary(x => x.Name);
@@ -413,6 +414,7 @@ namespace Eventor
 
             Dictionary<int, Club> clubsById =
                 session.Query<Club>().ToDictionary(x => (int)x.EventorID);
+
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
 

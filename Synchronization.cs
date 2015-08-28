@@ -208,9 +208,10 @@ namespace Eventor
                     // new EventInformation(3303, null),
                     // new EventInformation(7496, null),
                     // new EventInformation(7497, null),
-                    new EventInformation(10612, null)
+                    new EventInformation(10711, null)
                     },
-                    offline : false, full : true, save : true);
+                    // offline : false, full : true, save : true);
+                    offline : true, full : true, save : false);
         }
     }
 }
