@@ -514,7 +514,7 @@ namespace Eventor
                             case "OK" : run.Status = "OK";
                                         run.Time = Util.TimeFromElement("Time", resEl);
                                         run.TimeDiff = Util.TimeFromElement("TimeDiff", resEl);
-                                        run.Position = Util.IntFromElement("ResultPosition", resEl);
+                                        run.Position = Util.IntFromElementNullable("ResultPosition", resEl);
                             break;
                             case "Cancelled" : run.Status = "br&ouml;t"; break;
                             case "MisPunch" : run.Status = "felst."; break;
