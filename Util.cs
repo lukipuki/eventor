@@ -16,7 +16,13 @@ namespace Eventor
         public static int? IntFromElementNullable(string name, XElement el)
         {
             if (el == null || el.Element(name) == null) return null;
-            return IntFromElement(name, el);
+            try
+            {
+                return IntFromElement(name, el);
+            }
+            catch (Exception e) {
+                return null;
+            }
         }
 
         public static int IntFromElement(string name, XElement el)

@@ -93,6 +93,7 @@ namespace Eventor
                     // Failed to load documents
                 }
 
+                // TODO: Sync events asynchronously in parallel
                 List<Event> events = new List<Event> ();
                 foreach (var eventInfo in eventInfos)
                 {
@@ -207,8 +208,8 @@ namespace Eventor
                     // new EventInformation(5113, 19421),
                     // new EventInformation(3303, null),
                     // new EventInformation(7496, null),
-                    // new EventInformation(7497, null),
-                    new EventInformation(10711, null)
+                    // new EventInformation(10711, null),
+                    new EventInformation(20624, null),
                     },
                     // offline : false, full : true, save : true);
                     offline : true, full : true, save : false);
