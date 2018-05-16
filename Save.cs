@@ -313,6 +313,7 @@ namespace Eventor
 
                 foreach (int raceID in raceIds[eventID])
                 {
+                    if (!peopleById.ContainsKey(personID)) continue;
                     Person person = peopleById[personID];
                     RaceClass raceClass = raceClassRetr[System.Tuple.Create(raceID, classID)];
 

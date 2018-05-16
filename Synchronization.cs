@@ -34,7 +34,13 @@ namespace Eventor
                             SaveClubs(session, clubsXml);
                             transaction.Commit();
                         }
+                    }
+                    catch (Exception e)
+                    {
+                        // Failed to save clubs
+                    }
 
+                    try {
                         Club club = session.Query<Club>().Single(x => x.EventorID == ourClubID);
 
                         XDocument peopleXml = offline ? XDocument.Load("XML/people.xml") :
@@ -46,11 +52,11 @@ namespace Eventor
                             SavePeople(club, session, peopleXml);
                             transaction.Commit();
                         }
-                        // Successfully saved clubs and people
+                        // Successfully saved people
                     }
                     catch (Exception e)
                     {
-                        // Failed to save clubs and people
+                        // Failed to save people
                     }
                 }
 
@@ -209,7 +215,7 @@ namespace Eventor
                     // new EventInformation(3303, null),
                     // new EventInformation(7496, null),
                     // new EventInformation(10711, null),
-                    new EventInformation(20624, null),
+                    new EventInformation(22514, null),
                     },
                     // offline : false, full : true, save : true);
                     offline : true, full : true, save : false);
