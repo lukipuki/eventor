@@ -95,7 +95,10 @@ namespace Eventor
                 if (peopleById.ContainsKey(eventorID))
                     person = peopleById[eventorID];
                 else if (peopleByName.ContainsKey(name))
+                {
                     person = peopleByName[name];
+                    person.EventorID = eventorID;
+                }
                 else
                     person = new Person { EventorID = eventorID };
 
