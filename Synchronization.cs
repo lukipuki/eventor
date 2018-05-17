@@ -213,8 +213,8 @@ namespace Eventor
                 new EventInformation[] {
                     // new EventInformation(5113, 19421),
                     // new EventInformation(3303, null),
-                    // new EventInformation(7496, null),
-                    // new EventInformation(10711, null),
+                    new EventInformation(18463, null),
+                    new EventInformation(20045, null),
                     new EventInformation(22514, null),
                     },
                     // offline : false, full : true, save : true);

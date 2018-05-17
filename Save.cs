@@ -59,9 +59,9 @@ namespace Eventor
             person.Club = club;
             if (personElement.Element("Address") != null)
                 person.Address =
-                string.Join(", ", personElement.Element("Address").Attributes()
-                        .Where(x => x.Value.Trim() != "")
-                        .Select(x => x.Name == "careOf" ? "c/o " + x.Value : x.Value));
+                    string.Join(", ", personElement.Element("Address").Attributes()
+                            .Where(x => x.Value.Trim() != "")
+                            .Select(x => x.Name == "careOf" ? "c/o " + x.Value : x.Value));
 
             XElement telEl = personElement.Element("Tele");
             if (telEl != null)
@@ -345,6 +345,23 @@ namespace Eventor
                 HasInformation(even, session);
         }
 
+        /**
+         * Finds a person based on the given person XML element.
+         */
+        static Person FindPerson(XElement personElement, Dictionary<int, Person> peopleById,
+                Dictionary<string, Person> peopleByName)
+        {
+            int? personID = Util.IntFromElementNullable("PersonId", personElement);
+            var nameTuple = Util.NameFrom(personElement.Element("PersonName"));
+            string name = nameTuple.Item1 + " " + nameTuple.Item2;
+
+            if (personID != null && peopleById.ContainsKey((int)personID))
+                return peopleById[(int)personID];
+            if (peopleByName.ContainsKey(name))
+                return peopleByName[name];
+            return null;
+        }
+
         static void SaveStartlist(ISession session, XDocument xml)
         {
             if (xml.Element("StartList").Element("Event") == null) return;
@@ -355,6 +372,8 @@ namespace Eventor
 
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
+            Dictionary<string, Person> peopleByName = session.Query<Person>()
+                .Where(x => x.EventorID == null).ToDictionary(x => x.Name);
             Dictionary<System.Tuple<int, int>, RaceClass> raceClassRetr =
                 session.Query<RaceClass>().Where(x => x.Race.Event == even)
                 .ToDictionary(x => System.Tuple.Create(x.Race.EventorID, x.Class.EventorID));
@@ -366,14 +385,11 @@ namespace Eventor
             int raceID = singleDay ? even.Races[0].EventorID : 0;
             foreach (var startlist in xml.Element("StartList").Elements("ClassStart"))
             {
-                int classID = Util.IntFromElement("EventClassId", startlist.Element("EventClass"));
+                int classID = Util.IntFromElement("EventClassId", startlist);
                 foreach (var personSta in startlist.Elements("PersonStart"))
                 {
-                    // TODO: What if the person doesn't have an ID?
-                    if (personSta.Element("Person").Element("PersonId") == null)
-                        continue;
-                    int personID = Util.IntFromElement("PersonId", personSta.Element("Person"));
-                    Person person = peopleById[personID];
+                    XElement personEl = personSta.Element("Person");
+                    Person person = FindPerson(personEl, peopleById, peopleByName);
 
                     foreach (XElement raceSta in
                             singleDay ? new XElement[] {personSta} : personSta.Elements("RaceStart"))
@@ -390,11 +406,10 @@ namespace Eventor
                             run = runsRetr[runID];
                             runsRetr.Remove(runID);
                         }
-                        else run = new Run
+                        else
                         {
-                            RaceClass = raceClass,
-                            Person = person,
-                        };
+                            run = new Run { RaceClass = raceClass, Person = person };
+                        }
 
                         XElement staEl = raceSta.Element("Start");
                         run.StartTime = Util.DateFromElementNullable(staEl.Element("StartTime"));
@@ -422,9 +437,8 @@ namespace Eventor
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
 
-            Dictionary<string, Person> peopleByName = new Dictionary<string, Person> ();
-            foreach (Person person in session.Query<Person> ().Where(x => x.EventorID == null))
-                peopleByName[person.Name] = person;
+            Dictionary<string, Person> peopleByName = session.Query<Person>()
+                .Where(x => x.EventorID == null).ToDictionary(x => x.Name);
             Club ourClub = session.Query<Club>().Single(x => x.EventorID == ourClubID);
             foreach (Person person in ourClub.People) peopleByName[person.Name] = person;
 
@@ -438,64 +452,46 @@ namespace Eventor
             bool singleDay = even.Form.EndsWith("SingleDay");
             foreach (var result in xml.Element("ResultList").Elements("ClassResult"))
             {
-                int classID = Util.IntFromElement("EventClassId", result.Element("EventClass"));
-                int raceID = 0;
-                foreach (var classInfo in result.Element("EventClass").Elements("ClassRaceInfo"))
+                int classID = Util.IntFromElement("EventClassId", result);
+                if (!singleDay)
                 {
-                    raceID = Util.IntFromElement("EventRaceId", classInfo);
-                    var raceClass = raceClassRetr[System.Tuple.Create(raceID, classID)];
-                    if (classInfo.Attribute("noOfStarts") != null)
+                    foreach (var classInfo in result.Element("EventClass").Elements("ClassRaceInfo"))
                     {
-                        raceClass.NoRunners = int.Parse(classInfo.Attribute("noOfStarts").Value);
-                        session.Update(raceClass);
+                        int raceID = Util.IntFromElement("EventRaceId", classInfo);
+                        var raceClass = raceClassRetr[System.Tuple.Create(raceID, classID)];
+                        if (classInfo.Attribute("noOfStarts") != null)
+                        {
+                            raceClass.NoRunners = int.Parse(classInfo.Attribute("noOfStarts").Value);
+                            session.Update(raceClass);
+                        }
                     }
                 }
 
                 // Sometimes classes with noone from our club show up, skip those
                 bool ok = result.Elements("PersonResult").Any(
                     x => Util.IntFromElementNullable("OrganisationId", x.Element("Organisation"))
-                         == ourClubID
+                        == ourClubID
                     );
+                if (!ok) continue;
 
-                if (ok) foreach (var personRes in result.Elements("PersonResult"))
+                foreach (var personRes in result.Elements("PersonResult"))
                 {
                     XElement personElement = personRes.Element("Person");
-                    int? personID = Util.IntFromElementNullable("PersonId", personElement);
-                    var nameTuple = Util.NameFrom(personElement.Element("PersonName"));
-                    string name = nameTuple.Item1 + " " + nameTuple.Item2;
+                    Person person = FindPerson(personElement, peopleById, peopleByName);
+                    if (person == null) person = new Person();
 
                     int? clubID = Util.IntFromElementNullable("OrganisationId",
                             personRes.Element("Organisation"));
                     Club club = null;
                     if (clubID != null && clubsById.ContainsKey((int)clubID))
                         club = clubsById[(int)clubID];
-                    Person person;
-                    if (personID != null)
-                    {
-                        if (!peopleById.ContainsKey((int)personID))
-                        {
-                            peopleById[(int)personID] = peopleByName.ContainsKey(name) ?
-                                peopleByName[name] : new Person();
-                            peopleById[(int)personID].EventorID = personID;
-                        }
-                        person = peopleById[(int)personID];
-                        SavePerson(personElement, peopleById[(int)personID], club, session);
-                    }
-                    else
-                    {
-                        if (!peopleByName.ContainsKey(name))
-                        {
-                            peopleByName[name] = new Person();
-                            SavePerson(personElement, peopleByName[name], club, session);
-                        }
-                        person = peopleByName[name];
-                    }
+                    SavePerson(personElement, person, club, session);
 
                     foreach (XElement raceRes in
                             singleDay ? new XElement[] {personRes} : personRes.Elements("RaceResult"))
                     {
-                        if (!singleDay)
-                            raceID = Util.IntFromElement("EventRaceId", raceRes.Element("EventRace"));
+                        int raceID = singleDay ? even.Races[0].EventorID :
+                            Util.IntFromElement("EventRaceId", raceRes.Element("EventRace"));
                         RaceClass raceClass =
                             raceClassRetr[System.Tuple.Create(raceID, classID)];
 
@@ -519,7 +515,7 @@ namespace Eventor
                                         run.Time = Util.TimeFromElement("Time", resEl);
                                         run.TimeDiff = Util.TimeFromElement("TimeDiff", resEl);
                                         run.Position = Util.IntFromElementNullable("ResultPosition", resEl);
-                            break;
+                                        break;
                             case "Cancelled" : run.Status = "br&ouml;t"; break;
                             case "MisPunch" : run.Status = "felst."; break;
                             case "DidNotStart" : run.Status = "ej start"; break;
