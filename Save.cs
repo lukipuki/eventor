@@ -382,20 +382,20 @@ namespace Eventor
                 .ToDictionary(x => System.Tuple.Create(x.Person.Id, x.RaceClass.Id));
 
             bool singleDay = even.Form.EndsWith("SingleDay");
-            int raceID = singleDay ? even.Races[0].EventorID : 0;
             foreach (var startlist in xml.Element("StartList").Elements("ClassStart"))
             {
                 int classID = Util.IntFromElement("EventClassId", startlist);
-                foreach (var personSta in startlist.Elements("PersonStart"))
+                foreach (var personStart in startlist.Elements("PersonStart"))
                 {
-                    XElement personEl = personSta.Element("Person");
+                    XElement personEl = personStart.Element("Person");
                     Person person = FindPerson(personEl, peopleById, peopleByName);
 
-                    foreach (XElement raceSta in
-                            singleDay ? new XElement[] {personSta} : personSta.Elements("RaceStart"))
+                    foreach (XElement raceStart in
+                            singleDay ? new XElement[] {personStart} : personStart.Elements("RaceStart"))
                     {
-                        if (!singleDay)
-                            raceID = Util.IntFromElement("EventRaceId", raceSta.Element("EventRace"));
+                        int raceID = singleDay ? even.Races[0].EventorID :
+                            Util.IntFromElement("EventRaceId", raceStart);
+
                         RaceClass raceClass =
                             raceClassRetr[System.Tuple.Create(raceID, classID)];
 
@@ -411,7 +411,7 @@ namespace Eventor
                             run = new Run { RaceClass = raceClass, Person = person };
                         }
 
-                        XElement staEl = raceSta.Element("Start");
+                        XElement staEl = raceStart.Element("Start");
                         run.StartTime = Util.DateFromElementNullable(staEl.Element("StartTime"));
                         run.SI = Util.IntFromElementNullable("CCardId", staEl);
                         session.SaveOrUpdate(run);
@@ -453,19 +453,18 @@ namespace Eventor
             foreach (var result in xml.Element("ResultList").Elements("ClassResult"))
             {
                 int classID = Util.IntFromElement("EventClassId", result);
-                if (!singleDay)
-                {
-                    foreach (var classInfo in result.Element("EventClass").Elements("ClassRaceInfo"))
-                    {
-                        int raceID = Util.IntFromElement("EventRaceId", classInfo);
-                        var raceClass = raceClassRetr[System.Tuple.Create(raceID, classID)];
-                        if (classInfo.Attribute("noOfStarts") != null)
-                        {
-                            raceClass.NoRunners = int.Parse(classInfo.Attribute("noOfStarts").Value);
-                            session.Update(raceClass);
-                        }
-                    }
-                }
+                // TODO(lukas) This data seems to have disappeared from Eventor.
+                //
+                // foreach (var classInfo in result.Element("EventClass").Elements("ClassRaceInfo"))
+                // {
+                //     int raceID = Util.IntFromElement("EventRaceId", classInfo);
+                //     var raceClass = raceClassRetr[System.Tuple.Create(raceID, classID)];
+                //     if (classInfo.Attribute("noOfStarts") != null)
+                //     {
+                //         raceClass.NoRunners = int.Parse(classInfo.Attribute("noOfStarts").Value);
+                //         session.Update(raceClass);
+                //     }
+                // }
 
                 // Sometimes classes with noone from our club show up, skip those
                 bool ok = result.Elements("PersonResult").Any(
@@ -491,7 +490,7 @@ namespace Eventor
                             singleDay ? new XElement[] {personRes} : personRes.Elements("RaceResult"))
                     {
                         int raceID = singleDay ? even.Races[0].EventorID :
-                            Util.IntFromElement("EventRaceId", raceRes.Element("EventRace"));
+                            Util.IntFromElement("EventRaceId", raceRes);
                         RaceClass raceClass =
                             raceClassRetr[System.Tuple.Create(raceID, classID)];
 
