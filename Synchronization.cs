@@ -35,7 +35,7 @@ namespace Eventor
                             transaction.Commit();
                         }
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         // Failed to save clubs
                     }
@@ -54,7 +54,7 @@ namespace Eventor
                         }
                         // Successfully saved people
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         // Failed to save people
                     }
@@ -78,7 +78,7 @@ namespace Eventor
                     }
                     // Successfully saved events
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     // Failed to save events
                 }
@@ -94,7 +94,7 @@ namespace Eventor
                         transaction.Commit();
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     // Failed to load documents
                 }
@@ -128,7 +128,7 @@ namespace Eventor
                             transaction.Commit();
                         }
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         // Failed to load classes for event.EventName, not trying to load startlists
                         // or results
@@ -153,7 +153,7 @@ namespace Eventor
                             }
                             // Successfully loaded startlist for event event.Name
                         }
-                        catch (Exception e)
+                        catch (Exception)
                         {
                             // Failed to load startlist for event event.Name
                         }
@@ -177,7 +177,7 @@ namespace Eventor
                             }
                             // Successfully loaded results for event event.Name
                         }
-                        catch (Exception e)
+                        catch (Exception)
                         {
                             // Failed to load results for event even.Name
                         }
@@ -199,7 +199,7 @@ namespace Eventor
                         transaction.Commit();
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     // Failed to load entries
                 }

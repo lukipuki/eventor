@@ -20,7 +20,7 @@ namespace Eventor
             {
                 return IntFromElement(name, el);
             }
-            catch (Exception e) {
+            catch (Exception) {
                 return null;
             }
         }
