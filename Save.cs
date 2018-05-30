@@ -91,6 +91,7 @@ namespace Eventor
                 string name = nameTuple.Item1 + " " + nameTuple.Item2;
                 int eventorID = Util.IntFromElement("PersonId", personElement);
 
+                // TODO: Use 'FindPerson' here.
                 Person person;
                 if (peopleById.ContainsKey(eventorID))
                     person = peopleById[eventorID];
@@ -346,7 +347,10 @@ namespace Eventor
         }
 
         /**
-         * Finds a person based on the given person XML element.
+         * Finds a person based on the given person XML element. First, the person is searched for
+         * using the Eventor ID. If it's not found, it's searched for using its name.
+         *
+         * If the person doesn't exist in the database, it's created.
          */
         static Person FindPerson(XElement personElement, Dictionary<int, Person> peopleById,
                 Dictionary<string, Person> peopleByName)
@@ -359,7 +363,32 @@ namespace Eventor
                 return peopleById[(int)personID];
             if (peopleByName.ContainsKey(name))
                 return peopleByName[name];
-            return null;
+            return new Person();
+        }
+
+        static Person FindAndUpdatePerson(XElement resultOrStart,
+                Dictionary<int, Person> peopleById, Dictionary<string, Person> peopleByName,
+                Dictionary<int, Club> clubsById, ISession session)
+        {
+            XElement personElement = resultOrStart.Element("Person");
+            Person person = FindPerson(personElement, peopleById, peopleByName);
+            int? clubID = Util.IntFromElementNullable("OrganisationId",
+                    resultOrStart.Element("Organisation"));
+            Club club = null;
+            if (clubID != null && clubsById.ContainsKey((int)clubID))
+                club = clubsById[(int)clubID];
+            SavePerson(personElement, person, club, session);
+            return person;
+        }
+
+        static Dictionary<string, Person> GetPeopleByName(ISession session)
+        {
+            // We initialize 'peopleByName' in a for-loop, since 'ToDictionary' is sensitive to
+            // duplicates.
+            var peopleByName = new Dictionary<string, Person> ();
+            foreach (Person person in session.Query<Person>().Where(x => x.EventorID == null))
+                peopleByName[person.Name] = person;
+            return peopleByName;
         }
 
         static void SaveStartlist(ISession session, XDocument xml)
@@ -372,14 +401,16 @@ namespace Eventor
 
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
-            Dictionary<string, Person> peopleByName = session.Query<Person>()
-                .Where(x => x.EventorID == null).ToDictionary(x => x.Name);
+            Dictionary<string, Person> peopleByName = GetPeopleByName(session);
+
             Dictionary<System.Tuple<int, int>, RaceClass> raceClassRetr =
                 session.Query<RaceClass>().Where(x => x.Race.Event == even)
                 .ToDictionary(x => System.Tuple.Create(x.Race.EventorID, x.Class.EventorID));
             Dictionary<System.Tuple<int, int>, Run> runsRetr =
                 session.Query<Run>().Where(x => x.RaceClass.Race.Event == even)
                 .ToDictionary(x => System.Tuple.Create(x.Person.Id, x.RaceClass.Id));
+            Dictionary<int, Club> clubsById =
+                session.Query<Club>().ToDictionary(x => (int)x.EventorID);
 
             bool singleDay = even.Form.EndsWith("SingleDay");
             foreach (var startlist in xml.Element("StartList").Elements("ClassStart"))
@@ -387,8 +418,8 @@ namespace Eventor
                 int classID = Util.IntFromElement("EventClassId", startlist);
                 foreach (var personStart in startlist.Elements("PersonStart"))
                 {
-                    XElement personEl = personStart.Element("Person");
-                    Person person = FindPerson(personEl, peopleById, peopleByName);
+                    Person person = FindAndUpdatePerson(personStart, peopleById, peopleByName,
+                            clubsById, session);
 
                     foreach (XElement raceStart in
                             singleDay ? new XElement[] {personStart} : personStart.Elements("RaceStart"))
@@ -436,11 +467,7 @@ namespace Eventor
 
             Dictionary<int, Person> peopleById = session.Query<Person>()
                 .Where(x => x.EventorID != null).ToDictionary(x => (int)x.EventorID);
-
-            Dictionary<string, Person> peopleByName = session.Query<Person>()
-                .Where(x => x.EventorID == null).ToDictionary(x => x.Name);
-            Club ourClub = session.Query<Club>().Single(x => x.EventorID == ourClubID);
-            foreach (Person person in ourClub.People) peopleByName[person.Name] = person;
+            Dictionary<string, Person> peopleByName = GetPeopleByName(session);
 
             Dictionary<System.Tuple<int, int>, RaceClass> raceClassRetr = session.Query<RaceClass>()
                 .Where(x => x.Race.Event == even)
@@ -452,19 +479,18 @@ namespace Eventor
             bool singleDay = even.Form.EndsWith("SingleDay");
             foreach (var result in xml.Element("ResultList").Elements("ClassResult"))
             {
-                int classID = Util.IntFromElement("EventClassId", result);
-                // TODO(lukas) This data seems to have disappeared from Eventor.
-                //
-                // foreach (var classInfo in result.Element("EventClass").Elements("ClassRaceInfo"))
-                // {
-                //     int raceID = Util.IntFromElement("EventRaceId", classInfo);
-                //     var raceClass = raceClassRetr[System.Tuple.Create(raceID, classID)];
-                //     if (classInfo.Attribute("noOfStarts") != null)
-                //     {
-                //         raceClass.NoRunners = int.Parse(classInfo.Attribute("noOfStarts").Value);
-                //         session.Update(raceClass);
-                //     }
-                // }
+                XElement classInfo = result.Element("EventClass");
+                int classID = Util.IntFromElement("EventClassId", classInfo);
+                foreach (var classRaceInfo in classInfo.Elements("ClassRaceInfo"))
+                {
+                    int raceID = Util.IntFromElement("EventRaceId", classRaceInfo);
+                    var raceClass = raceClassRetr[System.Tuple.Create(raceID, classID)];
+                    if (classRaceInfo.Attribute("noOfStarts") != null)
+                    {
+                        raceClass.NoRunners = int.Parse(classRaceInfo.Attribute("noOfStarts").Value);
+                        session.Update(raceClass);
+                    }
+                }
 
                 // Sometimes classes with noone from our club show up, skip those
                 bool ok = result.Elements("PersonResult").Any(
@@ -475,16 +501,8 @@ namespace Eventor
 
                 foreach (var personRes in result.Elements("PersonResult"))
                 {
-                    XElement personElement = personRes.Element("Person");
-                    Person person = FindPerson(personElement, peopleById, peopleByName);
-                    if (person == null) person = new Person();
-
-                    int? clubID = Util.IntFromElementNullable("OrganisationId",
-                            personRes.Element("Organisation"));
-                    Club club = null;
-                    if (clubID != null && clubsById.ContainsKey((int)clubID))
-                        club = clubsById[(int)clubID];
-                    SavePerson(personElement, person, club, session);
+                    Person person = FindAndUpdatePerson(personRes, peopleById, peopleByName,
+                            clubsById, session);
 
                     foreach (XElement raceRes in
                             singleDay ? new XElement[] {personRes} : personRes.Elements("RaceResult"))

@@ -212,10 +212,9 @@ namespace Eventor
             SynchronizeEvents(
                 new EventInformation[] {
                     // new EventInformation(5113, 19421),
-                    // new EventInformation(3303, null),
-                    new EventInformation(18463, null),
-                    new EventInformation(20045, null),
-                    new EventInformation(22514, null),
+                    // new EventInformation(1317, null),
+                    // new EventInformation(18463, null),
+                    new EventInformation(20047, null),
                     },
                     // offline : false, full : true, save : true);
                     offline : true, full : true, save : false);
